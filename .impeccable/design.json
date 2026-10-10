@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "name": "Aggregate Mail",
+  "mode": "operate",
+  "source": "qsgWf9eTSH3hwijq.mp4 frames at 25s, 65s, 104s, 140s and 178s measured at native 3796x2160 (2x); src/style.css",
+  "colors": {
+    "background": "#000000",
+    "text": "#ffffff",
+    "textSecondary": "#d4d4d4",
+    "textMuted": "#8a8a8a",
+    "textFaint": "#6e6e6e",
+    "separator": "#1a1a1a",
+    "controlBorder": "#262626",
+    "selectedRow": "#0b1c32",
+    "tabUnderline": "#4a94d0",
+    "link": "#5aa0ee",
+    "reason": "#e0917c"
+  },
+  "typography": {
+    "body": {
+      "fontFamily": "-apple-system, SF Pro Text, Segoe UI Variable Text, Segoe UI, system-ui, sans-serif",
+      "fontSize": "12px",
+      "lineHeight": 1.4
+    },
+    "rowSender": "13px/600",
+    "rowSubject": "12.5px",
+    "rowPreview": "11.5px",
+    "lowRow": "11px",
+    "meta": "11px",
+    "senderName": "14px/600",
+    "settingsHeading": "16px/600"
+  },
+  "layout": {
+    "topbar": 38,
+    "captionControls": 146,
+    "footer": 23,
+    "contextPanel": 226,
+    "settingsColumn": 600,
+    "rows": {
+      "low": 22,
+      "medium": 27,
+      "high": 46,
+      "compact": 22
+    },
+    "avatars": {
+      "low": 14,
+      "medium": 20,
+      "high": 24,
+      "context": 38
+    },
+    "mobileBreakpoint": 720
+  },
+  "radii": {
+    "control": 4,
+    "dialog": 8
+  },
+  "motion": {
+    "continuous": false
+  }
+}

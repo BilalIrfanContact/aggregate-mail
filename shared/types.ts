@@ -1,0 +1,120 @@
+export type Provider = "gmail" | "icloud" | "fastmail" | "yahoo" | "imap";
+export type Account = {
+  id: string;
+  email: string;
+  provider: Provider;
+  error?: string;
+};
+export type Category = "important" | "other";
+// Every System One style decision provider speaks the same request and answer
+// shapes; only the URL, the model id and the key differ.
+export type JevProvider = "typesafe" | "vercel" | "openrouter";
+export const jevProviders: Record<
+  JevProvider,
+  { name: string; endpoint: string; model: string; console: string }
+> = {
+  typesafe: {
+    name: "TypeSafe",
+    endpoint: "https://api.typesafe.ai/v1/systemone",
+    model: "jev-latest",
+    console: "Key from console.typesafe.ai",
+  },
+  vercel: {
+    name: "Vercel AI Gateway",
+    endpoint: "https://ai-gateway.vercel.sh/typesafe/v1/systemone",
+    model: "typesafe-ai/jev",
+    console: "Key from the Vercel AI Gateway",
+  },
+  openrouter: {
+    name: "OpenRouter",
+    endpoint: "https://openrouter.ai/api/alpha/decisions",
+    model: "typesafe/jev-1.13",
+    console: "Key from openrouter.ai/keys",
+  },
+};
+export const jevProviderOf = (value?: string): JevProvider =>
+  value === "vercel" || value === "openrouter" ? value : "typesafe";
+
+// Consumer mail hosts, where a favicon would show the provider's logo rather
+// than the sender's, so those senders keep a letter avatar instead.
+export const personalMailDomains = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "msn.com",
+  "yahoo.com",
+  "ymail.com",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+  "gmx.com",
+  "gmx.de",
+  "mail.com",
+  "zoho.com",
+  "fastmail.com",
+  "hey.com",
+  "yandex.com",
+  "qq.com",
+  "163.com",
+  "126.com",
+]);
+// Takes a bare host or a full address, since both the sender rows and the
+// logo route need the same answer.
+export function logoDomain(value: string) {
+  const domain = (value.split("@").pop() || "").trim().toLowerCase();
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/.test(domain))
+    return null;
+  return personalMailDomains.has(domain) ? null : domain;
+}
+export type Mail = {
+  id: string;
+  accountId: string;
+  remoteId: string;
+  sender: string;
+  address: string;
+  to: string;
+  subject: string;
+  preview: string;
+  body: string;
+  date: number;
+  unread: boolean;
+  category: Category;
+  relevance: 1 | 2 | 3;
+  reason: string;
+  archived: boolean;
+  snoozedUntil: number | null;
+  messageId?: string;
+  threadId?: string;
+  cc?: string;
+  replyTo?: string;
+  references?: string[];
+};
+export type Rule = {
+  id: string;
+  sender: string;
+  instruction: string;
+  category: Category;
+  relevance: 1 | 2 | 3;
+};
+export type State = {
+  accounts: Account[];
+  messages: Mail[];
+  rules: Rule[];
+  googleConfigured: boolean;
+  googleClientId: string | null;
+  jevConfigured: boolean;
+  jevProvider: JevProvider;
+  aiConfigured: boolean;
+  lastSync: number | null;
+};
+
+export type McpSettings = {
+  enabled: boolean;
+  allowSending: boolean;
+  token: string | null;
+};
