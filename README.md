@@ -4,9 +4,9 @@ An installable Windows desktop email client based on Ryan Vogel's video. Electro
 
 ## Install
 
-Run `release/Aggregate-Mail-Setup-0.1.0.exe`. It installs for the current user and creates Start menu and desktop shortcuts. Launch Aggregate Mail and connect accounts in Settings.
+Download the newest installer from [Releases](https://github.com/Zns-Nexus/aggregate-mail/releases) — `Aggregate-Mail-Setup-0.1.2.exe`, about 127 MB. It installs for the current user and creates Start menu and desktop shortcuts. Launch Aggregate Mail and connect accounts in Settings.
 
-You can also run `release/win-unpacked/Aggregate Mail.exe` directly. Keep its surrounding files together. The installer is unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
+To build it yourself instead, run `npm run package` and open the installer it writes to `release/`. You can also run `release/win-unpacked/Aggregate Mail.exe` directly; keep its surrounding files together. The installer is unsigned, so Windows may show an unknown-publisher or SmartScreen warning.
 
 ## Gmail OAuth
 
