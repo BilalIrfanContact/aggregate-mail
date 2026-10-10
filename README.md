@@ -122,6 +122,18 @@ npm run dev
 
 `npm run dev` launches the desktop app with React Fast Refresh and live CSS updates. Close the app to stop its development server. Restart this command after changing desktop or backend code. UI changes that require a full reload can reset an unsent draft. OAuth keeps the callback address above in development. `npm start` opens the last production build, created with `npm run build`. `npm run package` creates the Windows installer. `npm run check:desktop` checks production startup, database access and API isolation without driving the UI; `npm run dev -- --check-startup` also checks the hot reload client and development API proxy. `npm run dev:web` retains the earlier browser development target; it is not needed to use the app.
 
+## Releasing
+
+The source lives on GitCafe, which hosts no release downloads and runs no CI, so installers ship from the GitHub mirror. Pushing a `v*` tag runs `.github/workflows/release.yml`, which tests, packages and attaches the installer to a GitHub release. To cut the same build locally:
+
+```powershell
+node scripts/release.mjs --patch
+```
+
+That bumps the version, packages, prints the installer's SHA-256, and uploads it to the GitHub release when a GitHub remote exists. Delete the superseded installers in `release/` — `release/` is ignored by git, so nothing there reaches either host.
+
+The installer is unsigned, so Windows SmartScreen warns on first run. There is no auto-updater; installing a newer version over an older one keeps your mail and settings.
+
 ## Verification
 
 Strict TypeScript and production builds pass. Tests cover sender-rule precedence, visual classification, header validation, desktop navigation restrictions, configuration preservation, and MCP authentication, mail reads and mocked reply operations. `node scripts/check-mcp.mjs` checks an MCP initialize/tools-list handshake against a separate temporary server and verifies requests without a token get 401. Development and packaged native startup checks passed, including encrypted database access and rejection of requests outside the desktop session. No live browser or UI interaction testing was performed. Real account sign-in, mailbox operations and delivery remain unverified until provider credentials are supplied.
