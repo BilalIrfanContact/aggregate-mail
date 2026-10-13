@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("desktop", {
   platform: process.platform,
+  // The window has an OS material behind it: macOS vibrancy, or acrylic on
+  // Windows 11 22H2 (build 22621) and later.
+  materials: process.platform === "darwin" ||
+    (process.platform === "win32" && Number(process.getSystemVersion().split(".")[2]) >= 22621),
   onNavigation: (callback: (direction: "back" | "forward") => void) => {
     const listener = (_event: Electron.IpcRendererEvent, direction: string) => {
       if (direction === "back" || direction === "forward") callback(direction);

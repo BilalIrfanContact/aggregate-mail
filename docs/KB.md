@@ -316,7 +316,7 @@ Sources: [message rendering](../src/App.tsx), [navigation policy](../desktop/nav
 ### Back and Forward
 
 The [navigation hook](../src/navigation.ts) keeps visited view, account, Gmail label filter, search,
-selection and reader state in memory. [App](../src/App.tsx) records tab and
+selection and reader state in memory. [App](../src/App.tsx) records view and
 account changes, search edits and intentional message opens. Selecting a row
 does not add a visit. Consecutive search edits share one visit. Back and Forward
 restore context and request read status when reopening unread mail. A new
@@ -406,6 +406,8 @@ Sources: [reader](../src/App.tsx), [styles](../src/style.css),
 [The reader](../src/App.tsx) loads missing formatting on open, shows cached text during loading or failure and offers one manual retry. Show images sits above the body. No body image element exists until activation; consent resets on closure, message change or privacy activation. Delayed content and image responses cannot reveal another message. Formatted images stay inline without a duplicate gallery. Privacy mode suppresses body images and private link destinations.
 
 [Privacy matching](../src/privacy.ts) learns names from optional account display names and the current To/Cc display names tied to connected account addresses. It covers full names, first names and surnames, including one-letter Unicode components, with Unicode-aware boundaries, case/whitespace variation and URL encoding. The opened message's dictionary also protects Gmail label filter options and the label editor. A sender avatar uses a neutral dot when its displayed initial matches a known private name component; ordinary company initials stay visible. Sender-markup splits cannot expose a known name. Hidden bars have no private children, title or accessibility text. Explicit reveal applies to the clicked token; re-enabling privacy clears it. Unknown names that appear only in a body cannot be identified. A name that is also an ordinary word can hide that word while privacy is on. Editable compose fields retain their focus-to-reveal behavior.
+
+The sidebar open state is stored as `sidebar` (`open` or `closed`) in localStorage, beside `window-controls`; the rail is always shown. A closed sidebar stays mounted with `inert` so it can animate. [Appearance](../src/appearance.ts) stores theme, accent and transparency under `emc2.appearance.v1` and applies them as `data-theme`, `--accent` and `data-glass` on the document root. The preload exposes `desktop.materials`, true on macOS and on Windows build 22621 or later; [ADR 0021](adr/0021-window-materials-and-themes.md) records the window material decision.
 
 [Interaction preferences](../src/interaction.ts) store only opening mode and validated shortcuts under `emc2.interaction.v1` in localStorage. Double-click is the default. Single-click opens and marks unread mail read once; keyboard Enter remains available. Settings capture rejects conflicts, account-number keys, editing/system keys and consumed, repeated or composing events. Unmodified Escape closes Interaction settings even from a focused shortcut input. Inbox matching excludes editable fields and dialogs. Help and tooltips reflect the saved bindings; Escape, body-only Tab, account filters and Mac Cmd+[ / Cmd+] retain fixed roles. Storage failure shows a notice and keeps the current in-memory choice.
 

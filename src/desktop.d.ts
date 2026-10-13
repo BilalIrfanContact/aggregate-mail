@@ -3,6 +3,7 @@ declare global {
   interface Window {
     desktop?: {
       platform: string;
+      materials: boolean;
       onNavigation: (callback: (direction: "back" | "forward") => void) => () => void;
       onMailChanged: (callback: () => void) => () => void;
       oauthUrl: string;

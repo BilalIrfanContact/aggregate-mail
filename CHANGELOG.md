@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Render newsletter layouts closer to the sender's design: accept sender styles marked `!important`, keep block, inline-block and table display modes and floats, stop underlining links the sender marks as undecorated, align small icons with their text, keep the height of images sized only by height, parse newsletters nested up to 96 levels deep instead of falling back to plain text, show hidden preview text as one line, and draw blocked images as empty boxes at their size instead of squeezed text.
+
+- Show the Settings sections in the sidebar instead of mail, one section at a time. Add Settings, Appearance with four dark themes, six accent colors and a Transparency switch that uses macOS vibrancy or Windows 11 acrylic behind the window chrome and sidebar. Make menus, dropdowns, notices and dialogs glass, and move the sidebar selection and collapse on a spring.
+
+- Replace the top-bar tabs and account filters with a navigation rail and a collapsible sidebar in the macOS source-list style. The sidebar holds New message, the mail views, account filters, the Gmail label filter and sync status, and remembers whether it is open. Refresh the dark design tokens for a more native macOS look.
+
 - Close the desktop window to the tray instead of exiting, keep the mail service and a five-minute sync running while it is hidden, and show one native notification for the new unread mail a sync finds. Reopen from the tray, its menu or a second launch, and quit from the tray. Fields and selected text keep a native right-click menu.
 
 - Preserve macOS Keychain identity for existing protected mail keys, with one bounded legacy retry and no replacement of unreadable keys. Keep explicit startup-check profiles isolated from saved accounts.

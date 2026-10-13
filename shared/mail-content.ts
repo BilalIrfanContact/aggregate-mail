@@ -2,7 +2,8 @@ import { Parser } from "htmlparser2";
 
 export const MAIL_HTML_LIMIT = 256_000;
 export const MAIL_NODE_LIMIT = 4_000;
-export const MAIL_DEPTH_LIMIT = 40;
+// Newsletters nest tables about 50 deep; the node limit bounds the total work.
+export const MAIL_DEPTH_LIMIT = 96;
 
 // Keep decoded source bytes intact inside the limit; larger mail uses its text body.
 export function boundedMailHtml(value: string | false | undefined): string | null {
@@ -67,7 +68,8 @@ export function mailStyle(value: string): Record<string, string | number> {
     const colon = declaration.indexOf(":");
     if (colon < 0) continue;
     const name = declaration.slice(0, colon).trim().toLowerCase();
-    const input = declaration.slice(colon + 1).trim().toLowerCase();
+    // Inline styles cannot be overridden here, so the priority flag carries no meaning.
+    const input = declaration.slice(colon + 1).trim().toLowerCase().replace(/\s*!\s*important$/, "");
     let output: string | number | null = null;
     if (["color", "background-color", "border-color"].includes(name)) output = color(input);
     if (name === "background") output = color(input);
@@ -79,11 +81,20 @@ export function mailStyle(value: string): Record<string, string | number> {
     if (name === "text-decoration" && /^(none|underline|line-through)$/.test(input)) output = input;
     if (name === "white-space" && /^(normal|pre-wrap|pre-line)$/.test(input)) output = input;
     if (name === "border-collapse" && /^(collapse|separate)$/.test(input)) output = input;
+    // Layout modes that newsletters use for columns and icon rows. Values that
+    // hide content (none, visibility) stay rejected so all sender text is visible.
+    if (name === "display" && /^(block|inline|inline-block|table|table-row|table-cell)$/.test(input)) output = input;
+    if (name === "float" && /^(left|right|none)$/.test(input)) output = input;
+    if (name === "clear" && /^(left|right|both|none)$/.test(input)) output = input;
     if (name === "line-height") {
       if (/^\d+(?:\.\d+)?$/.test(input) && Number(input) >= 1 && Number(input) <= 3) output = input;
       else output = length(input, 96);
     }
-    if (/^(width|max-width|height|max-height)$/.test(name)) output = length(input, 1200, name.includes("width"));
+    if (/^(width|max-width|height|max-height)$/.test(name)) {
+      output = length(input, 1200, name.includes("width"));
+      // Zero boxes hide text (preview lines) and would wrap it one letter per line.
+      if (output !== null && parseFloat(output) === 0) output = null;
+    }
     if (/^(margin|padding)(-(top|right|bottom|left))?$/.test(name)) {
       const parts = input.split(/\s+/).map((part) => length(part, 48));
       if (parts.length <= 4 && parts.every((part) => part !== null)) output = parts.join(" ");

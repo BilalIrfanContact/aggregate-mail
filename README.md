@@ -57,7 +57,7 @@ Do not remove quarantine or disable Gatekeeper to make a build launch. If signat
 
 For local DMG and ZIP output, `npm run package:mac` uses the same signing hook. Local packaging never publishes downloads. Public binary distribution with a verified publisher still requires Developer ID signing and notarization by an authorized Apple team. The version-tag release workflow remains unchanged.
 
-The macOS menu provides standard Command shortcuts for editing, closing and quitting. The window controls sit to the left of the inbox tabs. Closing the window hides the app to the tray on both platforms: it keeps syncing and shows a notification for new unread mail, and Quit in the tray menu exits. Unsent drafts still require confirmation.
+The macOS menu provides standard Command shortcuts for editing, closing and quitting. The window controls sit at the top left, beside the sidebar toggle. Closing the window hides the app to the tray on both platforms: it keeps syncing and shows a notification for new unread mail, and Quit in the tray menu exits. Unsent drafts still require confirmation.
 
 ## Connect an account
 
@@ -123,7 +123,7 @@ A partial listing retains cached mail and batches already fetched. Only a comple
 
 - Important and Other combine all connected inboxes. Numbered account controls filter the view. Each sender shows its company logo, fetched once by the app from a favicon service and cached on this computer; senders on Gmail, Outlook, iCloud and similar hosts keep their initial, because their favicon would be the provider's logo rather than their own.
 - Comfortable rows use 34px for low relevance, 40px for medium, and 62px on two lines for high relevance. Compact mode uses uniform 28px rows. A 300px sender panel shows context, recent mail from the sender and recently opened mail. Measurements are recorded in `DESIGN.md`.
-- Search opens in the top strip with `/` or the small search icon. The normal inbox has no permanent search toolbar. Snoozed and Archive are quiet tabs beside Important and Other.
+- Search opens in the top strip with `/` or the small search icon. The normal inbox has no permanent search toolbar. Important, Other, Snoozed and Archive are listed in the left sidebar with the account filters.
 - Local sorting works without an AI service. Add a Jev or OpenAI key under Settings, Connection to classify new mail with Jev by TypeSafe AI (used when its key is set) or OpenAI. Sender, subject and up to 220 characters of preview text go to that provider, a few messages at a time so a first sync stays quick. A failed call names the provider, then falls back to local sorting for the rest of that account's sync.
 - Teach applies an exact sender rule to existing and future mail. Removing a rule reapplies local sorting.
 - Done archives in Gmail or moves IMAP mail to an archive folder. It does not delete mail.

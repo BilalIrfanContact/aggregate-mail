@@ -1,26 +1,33 @@
-/* macOS-style dark chrome, rounded working panes and brief state transitions. */
+/* macOS-style dark chrome: a black window frame, a navigation rail and sidebar,
+   rounded working panes and brief state transitions. */
 :root {
   --bg: #000;
-  --surface: #0c0c0e;
-  --raised: #19191c;
+  --surface: #0e0e10;
+  --raised: #1c1c1f;
   --radius-control: 8px;
-  --radius-pane: 16px;
-  --hover: rgba(255, 255, 255, 0.03);
-  --selected: rgba(255, 255, 255, 0.055);
-  --line: rgba(255, 255, 255, 0.07);
+  --radius-pane: 14px;
+  --rail: 56px;
+  --sidebar: 240px;
+  --gutter: 10px;
+  --hover: rgba(255, 255, 255, 0.04);
+  --selected: rgba(255, 255, 255, 0.07);
+  --line: rgba(255, 255, 255, 0.08);
   --line-2: rgba(255, 255, 255, 0.12);
   --text: #fff;
   --text-2: #a0a0a6;
   --text-3: #88888f;
   --text-4: #82828a;
   --accent: #6b9cff;
-  --link: #8ab0ff;
+  --link: color-mix(in srgb, var(--accent) 72%, #fff);
   --reason: #e3a08b;
   --danger: #f07c7c;
   --veil: #1d1d1d;
   --veil-hover: #262626;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* A lightly damped spring: settles with a small overshoot, never loops. */
+  --spring: linear(0, 0.06 2.4%, 0.23 5.3%, 0.48 9.3%, 0.71 13.8%, 0.87 18.6%, 0.96 23.8%, 1.005 29.7%, 1.02 36%, 1.012 45%, 1.002 60%, 1);
+  --edge: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   font-family:
     -apple-system,
     BlinkMacSystemFont,
@@ -37,6 +44,40 @@
   color-scheme: dark;
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
+}
+:root[data-theme="graphite"] {
+  --bg: #141416;
+  --surface: #1c1c1f;
+  --raised: #29292d;
+  --veil: #2a2a2e;
+  --veil-hover: #333338;
+}
+:root[data-theme="midnight"] {
+  --bg: #04060d;
+  --surface: #0c111f;
+  --raised: #172036;
+  --veil: #161d30;
+  --veil-hover: #1d2640;
+}
+:root[data-theme="forest"] {
+  --bg: #030705;
+  --surface: #0b1410;
+  --raised: #16231c;
+  --veil: #14201a;
+  --veil-hover: #1b2a22;
+}
+/* Transparency: the OS material shows through the window chrome and sidebar,
+   tinted by the theme. Reading panes stay opaque, as in macOS Mail. */
+:root[data-glass],
+:root[data-glass] body {
+  background: transparent;
+}
+:root[data-glass] .app {
+  background: color-mix(in srgb, var(--bg) 50%, transparent);
+}
+:root[data-glass] .sidebar {
+  background: color-mix(in srgb, var(--surface) 38%, transparent);
+  border-color: rgba(255, 255, 255, 0.09);
 }
 * {
   box-sizing: border-box;
@@ -56,6 +97,9 @@ input[type="checkbox"] {
 ::-webkit-scrollbar-track,
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+html {
+  background: var(--bg);
 }
 body {
   margin: 0;
@@ -112,10 +156,12 @@ svg {
   overflow-y: auto;
   padding: 5px;
   border-radius: 12px;
-  background: var(--raised);
+  background: color-mix(in srgb, var(--raised) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(1.6);
   border: 1px solid var(--line-2);
+  box-shadow: var(--edge), 0 12px 32px rgba(0, 0, 0, 0.45);
   color: #fff;
-  animation: menu-in 160ms var(--ease-out);
+  animation: menu-in 180ms var(--ease-out);
 }
 .mail-menu button {
   width: 100%;
@@ -136,7 +182,7 @@ svg {
   border-radius: 4px;
 }
 ::selection {
-  background: rgba(107, 156, 255, 0.35);
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 input,
 select,
@@ -209,14 +255,51 @@ input[type="checkbox"][role="switch"]:disabled {
 
 /* The toolbar is also the draggable frame; native traffic-light spacing is preserved. */
 .topbar {
-  height: 56px;
+  height: 52px;
   flex-shrink: 0;
   display: flex;
-  align-items: stretch;
-  gap: 24px;
-  padding: 0 20px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  align-items: center;
+  gap: 6px;
+  padding: 0 var(--gutter) 0 0;
+}
+.topbar-lead {
+  --lead-closed: var(--rail);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(var(--rail) + var(--sidebar) + var(--gutter));
+  height: 100%;
+  padding-left: 11px;
+  transition: width 460ms var(--spring);
+}
+.topbar-lead.collapsed {
+  width: var(--lead-closed);
+}
+/* Drawn window controls sit before the toggle and widen the collapsed lead. */
+.topbar-lead:has(.traffic) {
+  --lead-closed: 132px;
+  padding-left: 16px;
+}
+.desktop[data-platform="darwin"] .topbar-lead {
+  --lead-closed: 132px;
+  padding-left: 88px;
+}
+.topbar .traffic {
+  margin-right: 8px;
+}
+.topbar .traffic.right {
+  margin: 0 6px 0 10px;
+}
+.topbar-title {
+  min-width: 0;
+  margin-left: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+  animation: fade-in 220ms var(--ease-out);
 }
 .desktop .topbar {
   -webkit-app-region: drag;
@@ -225,10 +308,7 @@ input[type="checkbox"][role="switch"]:disabled {
 .desktop .topbar :is(button, input, a, label) {
   -webkit-app-region: no-drag;
 }
-.desktop[data-platform="darwin"] .topbar {
-  padding-left: 96px;
-  padding-right: 16px;
-}
+
 .traffic {
   display: flex;
   align-items: center;
@@ -262,86 +342,12 @@ input[type="checkbox"][role="switch"]:disabled {
 .traffic.right {
   flex-direction: row-reverse;
 }
-.tabs {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  gap: 18px;
-  min-width: 0;
-}
-.tabs > button {
-  gap: 7px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-3);
-  transition: color 180ms var(--ease-out);
-}
-.tabs > button:hover {
-  color: var(--text-2);
-}
-.tabs > button.active {
-  color: var(--text);
-}
-.tab-indicator {
-  position: absolute;
-  left: 0;
-  bottom: -1px;
-  height: 1.5px;
-  border-radius: 2px;
-  background: var(--text);
-  pointer-events: none;
-}
-.tab-indicator.animate {
-  transition:
-    transform 220ms var(--ease-out),
-    width 220ms var(--ease-out);
-}
-.tab-count {
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-4);
-}
-.active .tab-count {
-  color: var(--text-3);
-}
 .topbar-end {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
-}
-.accounts {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-  overflow: hidden;
-  margin-right: 14px;
-}
-.accounts button {
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-3);
-  transition: color 160ms var(--ease-out);
-}
-.accounts button:hover {
-  color: var(--text-2);
-}
-.accounts kbd {
-  display: none;
-}
-.accounts .active {
-  color: var(--text);
-}
-.sync {
-  margin-right: 6px;
-  font-size: 12px;
-  color: var(--text-4);
-  transition: color 160ms var(--ease-out);
-}
-.sync:hover:not(:disabled) {
-  color: var(--text-2);
 }
 .search {
   width: 260px;
@@ -378,8 +384,8 @@ input[type="checkbox"][role="switch"]:disabled {
   color: var(--text);
 }
 .icon {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--radius-control);
   justify-content: center;
   color: var(--text-3);
@@ -397,29 +403,6 @@ input[type="checkbox"][role="switch"]:disabled {
   border-radius: 50%;
   background: var(--reason);
 }
-.crumbs {
-  animation: fade-in 220ms var(--ease-out);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-4);
-}
-.crumbs button {
-  gap: 8px;
-  color: var(--text-3);
-}
-.crumbs button:hover {
-  color: var(--text);
-}
-.crumbs kbd {
-  font-size: 11.5px;
-  color: var(--text-4);
-}
-.crumbs strong {
-  color: var(--text);
-  font-weight: 500;
-}
-
 /* Provider marks: Gmail, iCloud, Fastmail, Yahoo, custom IMAP. */
 .provider-icon {
   width: 13px;
@@ -461,6 +444,162 @@ input[type="checkbox"][role="switch"]:disabled {
   background: #7024de;
 }
 
+/* Below the top bar: rail, optional sidebar, then the working panes. */
+.frame {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  gap: var(--gutter);
+  padding: 0 var(--gutter) var(--gutter) 0;
+}
+.rail {
+  width: var(--rail);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0 6px;
+}
+.rail button {
+  width: 38px;
+  height: 38px;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--text-3);
+  transition:
+    color 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+.rail button:hover {
+  color: var(--text);
+}
+.rail button.active {
+  color: var(--text);
+  background: var(--selected);
+}
+.rail .rail-end {
+  margin-top: auto;
+}
+/* A source list in the macOS sense: plain rows, one quiet wash for the current item. */
+.sidebar {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pane);
+  background: var(--surface);
+  box-shadow: var(--edge);
+  transition:
+    width 460ms var(--spring),
+    margin 460ms var(--spring),
+    opacity 220ms var(--ease-out),
+    border-color 220ms var(--ease-out);
+}
+.sidebar.closed {
+  width: 0;
+  margin-right: calc(-1 * var(--gutter));
+  opacity: 0;
+  border-color: transparent;
+}
+/* Fixed width, so collapsing clips the content instead of reflowing it. */
+.sidebar-content {
+  width: calc(var(--sidebar) - 2px);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 8px 8px;
+  animation: sidebar-swap 280ms var(--ease-out);
+}
+.sliding-nav {
+  position: relative;
+}
+.sliding-wash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-radius: var(--radius-control);
+  background: var(--selected);
+  pointer-events: none;
+}
+.sliding-wash.animate {
+  transition:
+    transform 440ms var(--spring),
+    height 440ms var(--spring);
+}
+.sidebar button {
+  position: relative;
+  width: 100%;
+  min-height: 32px;
+  flex-shrink: 0;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  color: var(--text);
+  transition: background-color 140ms var(--ease-out);
+}
+.sidebar button > svg {
+  color: var(--text-3);
+}
+.sidebar button:hover:not(.active, :disabled) {
+  background: var(--hover);
+}
+.sidebar button.active > svg {
+  color: var(--text);
+}
+.sidebar button:focus-visible {
+  outline-offset: -1px;
+  border-radius: var(--radius-control);
+}
+.sidebar-compose {
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+.sidebar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.sidebar-group + .sidebar-group {
+  margin-top: 18px;
+}
+.sidebar-group h2 {
+  padding: 0 10px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-4);
+}
+.sidebar-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-4);
+}
+.sidebar-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Account digits stay in the accessible name; the help dialog lists them. */
+.sidebar kbd {
+  display: none;
+}
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 18px;
+}
+.sync {
+  font-size: 12px;
+  color: var(--text-4);
+}
+.sidebar .sync:hover:not(:disabled) {
+  background: none;
+  color: var(--text-2);
+}
+
 /* Notices float quietly at the bottom. */
 .notice {
   position: fixed;
@@ -477,7 +616,9 @@ input[type="checkbox"][role="switch"]:disabled {
   padding: 10px 12px 10px 14px;
   border: 1px solid var(--line-2);
   border-radius: 12px;
-  background: var(--raised);
+  background: color-mix(in srgb, var(--raised) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: var(--edge), 0 12px 32px rgba(0, 0, 0, 0.45);
   color: var(--text);
   white-space: pre-line;
   transform: translateX(-50%);
@@ -495,9 +636,9 @@ input[type="checkbox"][role="switch"]:disabled {
   animation: fade-in 220ms var(--ease-out);
   flex: 1;
   display: flex;
+  min-width: 0;
   min-height: 0;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--gutter);
 }
 .list {
   flex: 1;
@@ -507,6 +648,7 @@ input[type="checkbox"][role="switch"]:disabled {
   border: 1px solid var(--line);
   border-radius: var(--radius-pane);
   background: var(--surface);
+  box-shadow: var(--edge);
 }
 .list,
 .context,
@@ -820,8 +962,10 @@ input[type="checkbox"][role="switch"]:disabled {
   list-style: none;
   border: 1px solid var(--line-2);
   border-radius: 12px;
-  background: var(--raised);
-  animation: menu-in 160ms var(--ease-out);
+  background: color-mix(in srgb, var(--raised) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: var(--edge), 0 12px 32px rgba(0, 0, 0, 0.45);
+  animation: menu-in 180ms var(--ease-out);
 }
 .dropdown-menu li {
   display: flex;
@@ -1002,21 +1146,17 @@ input[type="checkbox"][role="switch"]:disabled {
   color: var(--text);
 }
 
-/* Sender context: 280px side panel. */
-.label-filter {
-  width: 140px;
-  flex-shrink: 0;
-  align-self: center;
-}
-.label-filter .dropdown-trigger {
-  border: 0;
-  padding: 0;
+/* Gmail label filter: a sidebar row that opens the app's dropdown. */
+.sidebar .label-filter .dropdown-trigger {
   height: 32px;
+  border: 0;
   overflow: hidden;
-  color: #fff;
+  color: var(--text);
+}
+.sidebar .label-filter .dropdown-trigger:hover {
+  background: var(--hover);
 }
 .label-filter .dropdown-menu {
-  width: 240px;
   max-height: 320px;
   overflow: auto;
 }
@@ -1060,6 +1200,7 @@ input[type="checkbox"][role="switch"]:disabled {
   border: 1px solid var(--line);
   border-radius: var(--radius-pane);
   background: var(--surface);
+  box-shadow: var(--edge);
 }
 .context-pane {
   animation: context-in 220ms var(--ease-out);
@@ -1169,21 +1310,22 @@ input[type="checkbox"][role="switch"]:disabled {
 
 /* Settings: a 680px column of grouped controls on rounded working surfaces. */
 .settings {
-  animation: settings-in 240ms var(--ease-out);
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
-  padding: 40px 28px 72px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pane);
+  background: var(--surface);
+  box-shadow: var(--edge);
 }
 .settings-column {
-  max-width: 680px;
-  margin: 0 auto;
+  max-width: 760px;
+  padding: 28px 32px 56px;
+  animation: settings-in 380ms var(--spring);
 }
 /* Grouped rows in rounded panels, the way macOS settings stack them. */
 .settings-column > section {
-  padding: 24px 28px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pane);
+  padding: 0;
 }
 .settings-column > section + section {
   margin-top: 20px;
@@ -1192,10 +1334,10 @@ input[type="checkbox"][role="switch"]:disabled {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  margin-bottom: 4px;
-  font-size: 16px;
+  margin-bottom: 8px;
+  font-size: 20px;
   font-weight: 600;
-  line-height: 22px;
+  line-height: 26px;
 }
 .settings h1 span {
   font-size: 12px;
@@ -1422,8 +1564,8 @@ input[type="checkbox"][role="switch"]:disabled {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.6);
-  animation: fade-in 180ms var(--ease-out);
+  background: rgba(0, 0, 0, 0.5);
+  animation: fade-in 200ms var(--ease-out);
 }
 .dialog {
   width: 540px;
@@ -1433,8 +1575,10 @@ input[type="checkbox"][role="switch"]:disabled {
   padding: 24px 28px 28px;
   border: 1px solid var(--line-2);
   border-radius: 18px;
-  background: var(--surface);
-  animation: dialog-in 240ms var(--ease-out);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(32px) saturate(1.6);
+  box-shadow: var(--edge), 0 24px 64px rgba(0, 0, 0, 0.5);
+  animation: dialog-in 420ms var(--spring);
 }
 .dialog-title {
   display: flex;
@@ -1631,6 +1775,12 @@ input[type="checkbox"][role="switch"]:disabled {
     transform: translateY(10px);
   }
 }
+@keyframes sidebar-swap {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
 @keyframes search-in {
   from {
     transform: translateX(6px);
@@ -1660,37 +1810,23 @@ input[type="checkbox"][role="switch"]:disabled {
   }
 }
 
-@media (max-width: 1280px) {
-  .accounts button:not(.active) > span:not(.provider-icon) {
-    display: none;
-  }
-}
-@media (max-width: 1080px) {
-  .context,
-  .sync {
+@media (max-width: 1180px) {
+  .context {
     display: none;
   }
 }
 @media (max-width: 760px) {
-  .topbar {
-    gap: 12px;
-    padding-right: 12px;
-    padding-left: 12px;
+  .sidebar {
+    display: none;
   }
-  .workspace {
-    padding: 8px;
+  .topbar-lead {
+    width: var(--lead-closed);
   }
   .message {
     padding: 24px 18px 48px;
   }
-  .settings {
-    padding: 20px 12px 40px;
-  }
-  .settings-column > section {
-    padding: 16px;
-  }
-  .tabs > .quiet {
-    display: none;
+  .settings-column {
+    padding: 20px 16px 40px;
   }
   .stacked .row-preview {
     padding-left: 0;
@@ -1711,7 +1847,7 @@ input[type="checkbox"][role="switch"]:disabled {
 .formatted-mail table { max-width: 100%; }
 .formatted-mail a { text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .formatted-mail :is(h1, h2, h3, h4, h5, h6) { margin: 1em 0 0.5em; line-height: 1.3; }
-.formatted-mail-image { display: inline-block; max-width: 100%; }
+.formatted-mail-image-placeholder { display: inline-block; max-width: 100%; vertical-align: middle; border-radius: 4px; background: rgba(255, 255, 255, 0.05); }
 .formatted-mail-image-status { display: inline-block; margin: 6px 0; color: var(--text-2); font-size: 13px; }
 [data-interaction-settings] > div { display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; gap: 16px; padding: 6px 0; }
 [data-interaction-settings] :is(input, select) { width: 100%; }
@@ -1720,3 +1856,73 @@ input[type="checkbox"][role="switch"]:disabled {
 [data-interaction-settings] > p { margin: 10px 0; }
 [data-interaction-settings] [role="status"]:empty { display: none; }
 .address:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+/* Settings, Appearance: theme previews, accent swatches and Transparency. */
+.appearance-settings h2 {
+  margin: 18px 0 10px;
+}
+.appearance-settings h2:first-child {
+  margin-top: 12px;
+}
+.theme-choices {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.theme-choices button {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  text-align: center;
+}
+.theme-choices button.active {
+  color: var(--text);
+}
+.theme-preview {
+  position: relative;
+  height: 64px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+.theme-preview i,
+.theme-preview b {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.theme-preview i {
+  left: 8px;
+  width: 22%;
+}
+.theme-preview b {
+  left: calc(22% + 14px);
+  right: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+.theme-choices button.active .theme-preview {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.accent-choices {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.accent-choices button {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  transition: box-shadow 200ms var(--ease-out), transform 300ms var(--spring);
+}
+.accent-choices button.active {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--text);
+}
+.accent-choices button:active {
+  transform: scale(0.9);
+}

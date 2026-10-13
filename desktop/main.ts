@@ -241,7 +241,13 @@ else {
         height: 900,
         minWidth: 900,
         minHeight: 560,
-        backgroundColor: "#0a0a0a",
+        // macOS vibrancy and Windows 11 acrylic sit behind the page. The
+        // renderer paints an opaque theme over them unless Transparency is on,
+        // so the material only shows where the app leaves surfaces translucent.
+        backgroundColor: isMac || process.platform === "win32" ? "#00000000" : "#0a0a0a",
+        vibrancy: isMac ? "under-window" : undefined,
+        visualEffectState: isMac ? "followWindow" : undefined,
+        backgroundMaterial: process.platform === "win32" ? "acrylic" : undefined,
         icon: path.join(app.getAppPath(), "build/icon.png"),
         show: false,
         // macOS keeps its native traffic lights. Elsewhere the window is

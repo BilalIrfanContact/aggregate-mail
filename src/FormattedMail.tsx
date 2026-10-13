@@ -36,9 +36,13 @@ export function FormattedMail({ html, showImages, renderText, redactText, privac
       if (style[property]) style[property] = String(style[property]).replace(/^(\d+(?:\.\d+)?px (?:solid|dashed|dotted) ).+$/, "$1var(--line)");
     }
     if (tag === "img") {
-      if (privacy || !showImages) return <span key={key} className="formatted-mail-image-status">
-        {privacy ? "Images hidden in privacy mode." : "Image blocked. Use Show images to load it."}
-      </span>;
+      // An empty box at the image's size keeps the sender layout; small icon
+      // cells would otherwise wrap the reason one letter per line.
+      if (privacy || !showImages) {
+        const reason = privacy ? "Images hidden in privacy mode." : "Image blocked. Use Show images to load it.";
+        return <span key={key} className="formatted-mail-image-placeholder" role="img" aria-label={reason} title={reason}
+          style={{ width: style.width ?? 24, height: style.height ?? 24 }} />;
+      }
       const src = imageSource(a.src || "");
       return src ? <FormattedImage key={`${key}:${src}`} src={src} alt={redactText((a.alt || "").slice(0, 500))} style={style} /> :
         <span key={key} className="formatted-mail-image-status">Unsupported image.</span>;
@@ -49,7 +53,8 @@ export function FormattedMail({ html, showImages, renderText, redactText, privac
       const href = mailLink(a.href || "");
       if (href && (!privacy || (!privateMailLink(a.href, redactText) && !privateMailLink(href, redactText)))) {
         style.color = "var(--link)";
-        style.textDecoration = "underline";
+        // Card-style links set no decoration; plain links keep an underline.
+        style.textDecoration ??= "underline";
         Object.assign(props, { href, target: "_blank", rel: "noopener noreferrer", referrerPolicy: "no-referrer" });
       }
       else element = "span";
@@ -90,9 +95,13 @@ export function FormattedMail({ html, showImages, renderText, redactText, privac
 
 function FormattedImage({ src, alt, style }: { src: string; alt: string; style: CSSProperties }) {
   const [status, setStatus] = useState("loading");
-  return <span className="formatted-mail-image">
+  // `display: contents` keeps the image in the sender's line, so its own
+  // vertical-align and float apply as they would in a mail client.
+  return <span className="formatted-mail-image" style={{ display: "contents" }}>
     {status !== "error" && <img src={src} alt={alt} referrerPolicy="no-referrer" decoding="async" loading="lazy"
-      style={{ ...style, maxWidth: "100%", height: "auto" }}
+      // With a width, auto height keeps the shape when max-width narrows it;
+      // icons sized only by height keep that height.
+      style={{ ...style, maxWidth: "100%", height: style.width || !style.height ? "auto" : style.height }}
       onLoad={() => setStatus("loaded")} onError={() => setStatus("error")} />}
     {status !== "loaded" && <span className="formatted-mail-image-status" role="status">
       {status === "error" ? "Image could not be loaded." : "Loading image…"}

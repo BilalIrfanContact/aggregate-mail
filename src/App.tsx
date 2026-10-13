@@ -30,7 +30,24 @@ import {
   Search,
   Settings,
   Mail as MailIcon,
+  SidebarIcon,
+  Compose as ComposeIcon,
+  Star,
+  Inbox,
+  Clock,
+  Archive,
+  Keyboard,
+  AtSign,
+  Sort,
+  Plug,
+  Palette,
+  Image as ImageIcon,
+  Cpu,
+  Info,
 } from "./icons";
+import { SlidingNav } from "./SlidingNav";
+import { AppearanceSettings } from "./AppearanceSettings";
+import { applyAppearance, readAppearance, saveAppearance, type Appearance } from "./appearance";
 import { customLabels, densityShortcut, matchesLabel, markMailRead } from "./mail-ui";
 import { appPasswordHelp, imageSource, jevProviders, logoDomain, providerNames } from "../shared/types";
 import { useMailNavigation, type MailLocation } from "./navigation";
@@ -149,6 +166,25 @@ const viewNames: Record<View, string> = {
   snoozed: "Snoozed",
   archive: "Archive",
 };
+// Sidebar order matches the view order used for pane motion.
+const sidebarViews = [
+  { view: "important", Icon: Star },
+  { view: "other", Icon: Inbox },
+  { view: "snoozed", Icon: Clock },
+  { view: "archive", Icon: Archive },
+] as const;
+// Settings shows one section at a time, chosen from the sidebar.
+const settingsSections = [
+  { id: "interaction", label: "Interaction", Icon: Keyboard },
+  { id: "accounts", label: "Accounts", Icon: AtSign },
+  { id: "sorting", label: "Sorting", Icon: Sort },
+  { id: "connection", label: "Connection", Icon: Plug },
+  { id: "appearance", label: "Appearance", Icon: Palette },
+  { id: "branding", label: "Branding", Icon: ImageIcon },
+  { id: "mcp", label: "MCP", Icon: Cpu },
+  { id: "about", label: "About", Icon: Info },
+] as const;
+export type SettingsSection = (typeof settingsSections)[number]["id"];
 const relevanceNames = ["", "Low", "Medium", "High"];
 const relative = (date: number) => {
   const minutes = Math.max(0, Math.floor((Date.now() - date) / 60000));
@@ -592,31 +628,16 @@ export function App() {
     localStorage.setItem("window-controls", side);
     setWindowSide(side);
   };
-  const tabsRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLElement>(null);
-  const [indicator, setIndicator] = useState<{
-    x: number;
-    width: number;
-    animate: boolean;
-  } | null>(null);
-  // Slide one underline between tabs instead of redrawing it per tab.
-  const lastView = useRef(view);
-  useLayoutEffect(() => {
-    const active = tabsRef.current?.querySelector<HTMLElement>(
-      ":scope > button.active",
-    );
-    if (!active) return;
-    const x = active.offsetLeft;
-    const width = active.offsetWidth;
-    // Counts change the tab's width; only a tab change should animate.
-    const moved = lastView.current !== view;
-    lastView.current = view;
-    setIndicator((current) =>
-      current?.x === x && current.width === width
-        ? current
-        : { x, width, animate: moved },
-    );
-  }, [view]);
+  // The sidebar panel stays open or closed between launches; the rail is always shown.
+  const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem("sidebar") !== "closed");
+  const toggleSidebar = () => {
+    localStorage.setItem("sidebar", sidebarOpen ? "closed" : "open");
+    setSidebarOpen(!sidebarOpen);
+  };
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>("interaction");
+  const [appearance, setAppearance] = useState(readAppearance);
+  useLayoutEffect(() => applyAppearance(appearance), [appearance]);
   const [density, setDensity] = useState<"comfortable" | "compact">(
     "comfortable",
   );
@@ -1012,123 +1033,21 @@ export function App() {
             window.desktop.windowCommand("maximize");
           }}
         >
-          {windowSide === "left" && <TrafficLights maximized={maximized} />}
-          {settings ? (
-            <nav className="crumbs" aria-label="Breadcrumb">
-              <button onClick={() => setSettings(false)}>
-                <kbd>esc</kbd>
-                {viewNames[view]}
-              </button>
-              <span aria-hidden="true">/</span>
-              <strong>Settings</strong>
-            </nav>
-          ) : (
-            <nav className="tabs" aria-label="Mail views" ref={tabsRef}>
-              {indicator && (
-                <span
-                  className={
-                    indicator.animate
-                      ? "tab-indicator animate"
-                      : "tab-indicator"
-                  }
-                  style={{
-                    width: indicator.width,
-                    transform: `translateX(${indicator.x}px)`,
-                  }}
-                  aria-hidden="true"
-                />
-              )}
-              {(["important", "other"] as const).map((v) => (
-                <button
-                  key={v}
-                  className={view === v ? "active" : undefined}
-                  aria-current={view === v ? "page" : undefined}
-                  onClick={() => switchView(v)}
-                >
-                  {viewNames[v]}
-                  <span className="tab-count">{count(v)}</span>
-                </button>
-              ))}
-              {(snoozedCount > 0 || view === "snoozed") && (
-                <button
-                  className={view === "snoozed" ? "active quiet" : "quiet"}
-                  aria-current={view === "snoozed" ? "page" : undefined}
-                  onClick={() => switchView("snoozed")}
-                >
-                  Snoozed
-                  <span className="tab-count">{snoozedCount}</span>
-                </button>
-              )}
-              <button
-                className={view === "archive" ? "active quiet" : "quiet"}
-                aria-current={view === "archive" ? "page" : undefined}
-                onClick={() => switchView("archive")}
-              >
-                Archive
-              </button>
-            </nav>
-          )}
+          {/* Spans the rail and sidebar, so the title starts over the content pane. */}
+          <div className={sidebarOpen ? "topbar-lead" : "topbar-lead collapsed"}>
+            {windowSide === "left" && <TrafficLights maximized={maximized} />}
+            <button
+              className="icon"
+              aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+              aria-expanded={sidebarOpen}
+              aria-controls="sidebar"
+              onClick={toggleSidebar}
+            >
+              <SidebarIcon color="currentColor" size={16} />
+            </button>
+          </div>
+          <h1 className="topbar-title">{settings ? "Settings" : viewNames[view]}</h1>
           <div className="topbar-end">
-            {!settings && (
-              <nav className="accounts" aria-label="Filter accounts">
-                <button
-                  className={accountFilter === "all" ? "active" : undefined}
-                  aria-pressed={accountFilter === "all"}
-                  onClick={() => navigate({ accountFilter: "all", selectedId: null, opened: false })}
-                >
-                  <kbd>0</kbd>All
-                </button>
-                {state.accounts.map((a, i) => (
-                  <button
-                    key={a.id}
-                    title={
-                      privacy
-                        ? providerNames[a.provider]
-                        : a.error
-                          ? `${a.email}: ${a.error}`
-                          : a.email
-                    }
-                    className={accountFilter === a.id ? "active" : undefined}
-                    aria-pressed={accountFilter === a.id}
-                    onClick={() => {
-                      navigate({ accountFilter: a.id, selectedId: null, opened: false });
-                    }}
-                  >
-                    {i < 9 && <kbd>{i + 1}</kbd>}
-                    <ProviderIcon provider={a.provider} />
-                    <span>
-                      <Address value={a.email}>
-                        {a.provider === "icloud"
-                          ? "iCloud"
-                          : a.email.split("@")[0]}
-                      </Address>
-                    </span>
-                    {a.error && (
-                      <i className="error-dot" aria-label="Needs attention" />
-                    )}
-                  </button>
-                ))}
-              </nav>
-            )}
-            {!settings && labels.length > 0 && (
-              <div className="label-filter">
-                <Dropdown
-                  label="Filter by Gmail label"
-                  value={labelFilter}
-                  options={[
-                    { value: "all", label: "All labels" },
-                    ...labels.map((label) => {
-                      const email = state.accounts.find((a) => a.id === label.accountId)?.email || "Gmail";
-                      const name = accountFilter === "all" ? `${label.name} (${email})` : label.name;
-                      return { value: `${label.accountId}:${label.id}`, label: privacy ? redactPrivateText(name, collectPrivateNames(state.accounts, opened ? selected || {} : {})) : name };
-                    }),
-                  ]}
-                  onChange={(value) => {
-                    navigate({ labelFilter: value, selectedId: null, opened: false });
-                  }}
-                />
-              </div>
-            )}
             {!settings &&
               (searching ? (
                 <div className="search" role="search">
@@ -1150,28 +1069,14 @@ export function App() {
                   </button>
                 </div>
               ) : (
-                <>
-                  <button
-                    className="sync"
-                    disabled={syncing || !state.accounts.length}
-                    onClick={() => void sync()}
-                    title="Sync mail"
-                  >
-                    {syncing
-                      ? "Syncing"
-                      : state.lastSync
-                        ? `Synced ${relative(state.lastSync)}`
-                        : "Not synced"}
-                  </button>
-                  <button
-                    className="icon"
-                    aria-label="Search mail"
-                    title={`Search (${shortcut("search")})`}
-                    onClick={showSearch}
-                  >
-                    <Search color="currentColor" size={15} />
-                  </button>
-                </>
+                <button
+                  className="icon"
+                  aria-label="Search mail"
+                  title={`Search (${shortcut("search")})`}
+                  onClick={showSearch}
+                >
+                  <Search color="currentColor" size={15} />
+                </button>
               ))}
             <button
               className={privacy ? "icon on" : "icon"}
@@ -1185,14 +1090,6 @@ export function App() {
               onClick={togglePrivacy}
             >
               {privacy ? <EyeOff color="currentColor" size={15} /> : <Eye color="currentColor" size={15} />}
-            </button>
-            <button
-              className="icon"
-              aria-label={settings ? "Close settings" : "Settings"}
-              aria-pressed={settings}
-              onClick={() => setSettings((s) => !s)}
-            >
-              <Settings color="currentColor" size={15} />
             </button>
           </div>
           {windowSide === "right" && <TrafficLights right maximized={maximized} />}
@@ -1210,6 +1107,148 @@ export function App() {
             </button>
           </div>
         )}
+        <div className="frame">
+          <nav className="rail" aria-label="Sections">
+            <button
+              className={settings ? undefined : "active"}
+              aria-label="Mail"
+              aria-current={settings ? undefined : "page"}
+              title="Mail"
+              onClick={() => setSettings(false)}
+            >
+              <MailIcon color="currentColor" size={18} />
+            </button>
+            <button
+              className={settings ? "rail-end active" : "rail-end"}
+              aria-label={settings ? "Close settings" : "Settings"}
+              aria-pressed={settings}
+              title={`Settings (${shortcut("settings")})`}
+              onClick={() => setSettings((s) => !s)}
+            >
+              <Settings color="currentColor" size={18} />
+            </button>
+          </nav>
+          <aside
+            id="sidebar"
+            className={sidebarOpen ? "sidebar" : "sidebar closed"}
+            aria-label={settings ? "Settings sections" : "Mailboxes"}
+            inert={!sidebarOpen}
+          >
+            {settings ? (
+              <div className="sidebar-content" key="settings">
+                <SlidingNav activeKey={settingsSection} label="Settings sections" className="sidebar-group">
+                  {settingsSections.map(({ id, label, Icon }) => (
+                    <button
+                      key={id}
+                      className={settingsSection === id ? "active" : undefined}
+                      aria-current={settingsSection === id ? "page" : undefined}
+                      onClick={() => setSettingsSection(id)}
+                    >
+                      <Icon color="currentColor" size={16} />
+                      {label}
+                    </button>
+                  ))}
+                </SlidingNav>
+              </div>
+            ) : (
+              <div className="sidebar-content" key="mail">
+                <button className="sidebar-compose" title={`Compose (${shortcut("compose")})`} onClick={() => startCompose()}>
+                  <ComposeIcon color="currentColor" size={16} />
+                  New message
+                </button>
+                <SlidingNav activeKey={view} label="Mail views" className="sidebar-group">
+                  {sidebarViews.map(({ view: v, Icon }) => {
+                    const total = v === "snoozed" ? snoozedCount : v === "archive" ? null : count(v);
+                    if (v === "snoozed" && !total && view !== "snoozed") return null;
+                    return (
+                      <button
+                        key={v}
+                        className={view === v ? "active" : undefined}
+                        aria-current={view === v ? "page" : undefined}
+                        onClick={() => switchView(v)}
+                      >
+                        <Icon color="currentColor" size={16} />
+                        {viewNames[v]}
+                        {total !== null && <span className="sidebar-count">{total}</span>}
+                      </button>
+                    );
+                  })}
+                </SlidingNav>
+                {state.accounts.length > 0 && (
+                  <SlidingNav activeKey={accountFilter} label="Filter accounts" className="sidebar-group">
+                    <h2>Accounts</h2>
+                    <button
+                      className={accountFilter === "all" ? "active" : undefined}
+                      aria-pressed={accountFilter === "all"}
+                      onClick={() => navigate({ accountFilter: "all", selectedId: null, opened: false })}
+                    >
+                      <kbd>0</kbd>All
+                    </button>
+                    {state.accounts.map((a, i) => (
+                      <button
+                        key={a.id}
+                        title={
+                          privacy
+                            ? providerNames[a.provider]
+                            : a.error
+                              ? `${a.email}: ${a.error}`
+                              : a.email
+                        }
+                        className={accountFilter === a.id ? "active" : undefined}
+                        aria-pressed={accountFilter === a.id}
+                        onClick={() => navigate({ accountFilter: a.id, selectedId: null, opened: false })}
+                      >
+                        {i < 9 && <kbd>{i + 1}</kbd>}
+                        <ProviderIcon provider={a.provider} />
+                        <span className="sidebar-name">
+                          <Address value={a.email}>
+                            {a.provider === "icloud"
+                              ? "iCloud"
+                              : a.email.split("@")[0]}
+                          </Address>
+                        </span>
+                        {a.error && (
+                          <i className="error-dot" aria-label="Needs attention" />
+                        )}
+                      </button>
+                    ))}
+                  </SlidingNav>
+                )}
+                {labels.length > 0 && (
+                  <div className="sidebar-group label-filter">
+                    <h2>Labels</h2>
+                    <Dropdown
+                      label="Filter by Gmail label"
+                      value={labelFilter}
+                      options={[
+                        { value: "all", label: "All labels" },
+                        ...labels.map((label) => {
+                          const email = state.accounts.find((a) => a.id === label.accountId)?.email || "Gmail";
+                          const name = accountFilter === "all" ? `${label.name} (${email})` : label.name;
+                          return { value: `${label.accountId}:${label.id}`, label: privacy ? redactPrivateText(name, collectPrivateNames(state.accounts, opened ? selected || {} : {})) : name };
+                        }),
+                      ]}
+                      onChange={(value) => navigate({ labelFilter: value, selectedId: null, opened: false })}
+                    />
+                  </div>
+                )}
+                <div className="sidebar-footer">
+                  <button
+                    className="sync"
+                    disabled={syncing || !state.accounts.length}
+                    onClick={() => void sync()}
+                    title="Sync mail"
+                  >
+                    {syncing
+                      ? "Syncing"
+                      : state.lastSync
+                        ? `Synced ${relative(state.lastSync)}`
+                        : "Not synced"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </aside>
         {settings ? (
           <SettingsPage
             state={state}
@@ -1224,6 +1263,12 @@ export function App() {
             onInteraction={(value) => {
               setInteraction(value);
               if (!saveInteraction(value)) setNotice("Interaction settings could not be saved on this device.");
+            }}
+            section={settingsSection}
+            appearance={appearance}
+            onAppearance={(value) => {
+              setAppearance(value);
+              if (!saveAppearance(value)) setNotice("Appearance could not be saved on this device.");
             }}
           />
         ) : (
@@ -1449,6 +1494,7 @@ export function App() {
             </aside>
           </main>
         )}
+        </div>
         {contextMenu && menuMail && (
           <ContextMenu
             x={contextMenu.x}
@@ -1944,6 +1990,9 @@ export function SettingsPage({
   onWindowSide,
   interaction,
   onInteraction,
+  section,
+  appearance,
+  onAppearance,
 }: {
   state: State;
   busy: boolean;
@@ -1955,19 +2004,20 @@ export function SettingsPage({
   onWindowSide: (side: "left" | "right") => void;
   interaction: InteractionPreferences;
   onInteraction: (value: InteractionPreferences) => void;
+  section: SettingsSection;
+  appearance: Appearance;
+  onAppearance: (value: Appearance) => void;
 }) {
   const { on: privacy, names } = useContext(PrivacyContext);
   return (
     <main className="settings">
-      <div className="settings-column">
-        <section>
+      <div className="settings-column" key={section}>
+        {section === "interaction" && <section>
           <h1>Interaction</h1>
           <InteractionSettings value={interaction} onChange={onInteraction} />
-        </section>
-        <section>
-          <h1>
-            <span>1</span>Accounts
-          </h1>
+        </section>}
+        {section === "accounts" && <section>
+          <h1>Accounts</h1>
           <h2>Connected</h2>
           {state.accounts.length ? (
             state.accounts.map((a) => (
@@ -2020,11 +2070,9 @@ export function SettingsPage({
           )}
           <h2>Connect account</h2>
           <ProviderChoices googleConfigured={state.googleConfigured} busy={busy} onChoose={onConnectAccount} />
-        </section>
-        <section>
-          <h1>
-            <span>2</span>Sorting
-          </h1>
+        </section>}
+        {section === "sorting" && <section>
+          <h1>Sorting</h1>
           <p className="note">
             {state.jevConfigured
               ? "Jev sorting is on. Sender, subject and preview text of new mail are sent to Jev."
@@ -2065,11 +2113,9 @@ export function SettingsPage({
               No sender rules yet. Press <kbd>m</kbd> on any email to add one.
             </p>
           )}
-        </section>
-        <section>
-          <h1>
-            <span>3</span>Connection
-          </h1>
+        </section>}
+        {section === "connection" && <section>
+          <h1>Connection</h1>
           <details>
             <summary>Advanced connection setup</summary>
             {!state.googleConfigured && (
@@ -2125,11 +2171,10 @@ export function SettingsPage({
               jevProvider={state.jevProvider}
             />
           </details>
-        </section>
-        <section>
-          <h1>
-            <span>4</span>Appearance
-          </h1>
+        </section>}
+        {section === "appearance" && <section>
+          <h1>Appearance</h1>
+          <AppearanceSettings value={appearance} onChange={onAppearance} />
           {drawsWindowControls ? (
             <>
               <p className="note">
@@ -2155,18 +2200,16 @@ export function SettingsPage({
               corner.
             </p>
           )}
-        </section>
-        <BrandingSection
+        </section>}
+        {section === "branding" && <BrandingSection
           api={api}
           perform={perform}
           busy={busy}
           onNotice={onNotice}
-        />
-        <McpSection api={api} perform={perform} busy={busy} />
-        <section>
-          <h1>
-            <span>7</span>About
-          </h1>
+        />}
+        {section === "mcp" && <McpSection api={api} perform={perform} busy={busy} />}
+        {section === "about" && <section>
+          <h1>About</h1>
           <p className="note">
             Mail is stored encrypted on this computer and syncs every five
             minutes while the app is running. Closing the desktop window keeps it
@@ -2175,7 +2218,7 @@ export function SettingsPage({
             mailbox. Snooze is local to this client. Disconnect removes the
             local account and cache without changing your mailbox.
           </p>
-        </section>
+        </section>}
       </div>
     </main>
   );
@@ -2547,9 +2590,7 @@ function BrandingSection({
 }) {
   return (
     <section>
-      <h1>
-        <span>5</span>Branding
-      </h1>
+      <h1>Branding</h1>
       <p className="note">
         Sender logos come from theSVG, an open brand icon library, and are
         cached on this computer. Scan the senders already in your inbox to
@@ -2643,9 +2684,7 @@ function McpSection({
   return (
     <section className="mcp-settings">
       <div className="section-head">
-        <h1>
-          <span>6</span>MCP
-        </h1>
+        <h1>MCP</h1>
         <button
           className="disclosure"
           aria-expanded={open}

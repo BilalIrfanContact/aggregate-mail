@@ -66,6 +66,62 @@ export function Mail(props: IconProps) {
   return <Outline {...props}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 6 9 7 9-7" /></Outline>;
 }
 
+export function SidebarIcon(props: IconProps) {
+  return <Outline {...props}><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M9 4v16" /></Outline>;
+}
+
+export function Compose(props: IconProps) {
+  return <Outline {...props}><path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" /><path d="M17.5 3.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z" /></Outline>;
+}
+
+export function Star(props: IconProps) {
+  return <Outline {...props}><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9Z" /></Outline>;
+}
+
+export function Inbox(props: IconProps) {
+  return <Outline {...props}><path d="M3 13h5l1.5 3h5l1.5-3h5" /><path d="M5.5 5h13L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Z" /></Outline>;
+}
+
+export function Clock(props: IconProps) {
+  return <Outline {...props}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Outline>;
+}
+
+export function Archive(props: IconProps) {
+  return <Outline {...props}><rect x="3" y="4" width="18" height="5" rx="1.5" /><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" /></Outline>;
+}
+
+export function Keyboard(props: IconProps) {
+  return <Outline {...props}><rect x="2.5" y="6" width="19" height="12" rx="2.5" /><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8" /></Outline>;
+}
+
+export function AtSign(props: IconProps) {
+  return <Outline {...props}><circle cx="12" cy="12" r="4" /><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" /></Outline>;
+}
+
+export function Sort(props: IconProps) {
+  return <Outline {...props}><path d="M4 6h16M7 12h10M10 18h4" /></Outline>;
+}
+
+export function Plug(props: IconProps) {
+  return <Outline {...props}><path d="M9 3v5m6-5v5M6 8h12v3a6 6 0 0 1-12 0Zm6 9v4" /></Outline>;
+}
+
+export function Palette(props: IconProps) {
+  return <Outline {...props}><path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.7-.9 1.4-1.8l-.3-.8a1.6 1.6 0 0 1 1.5-2.2H17a4 4 0 0 0 4-4c0-5-4-9.2-9-9.2Z" /><circle cx="7.5" cy="11" r="1" /><circle cx="10.5" cy="7" r="1" /><circle cx="15" cy="7.5" r="1" /></Outline>;
+}
+
+export function Image(props: IconProps) {
+  return <Outline {...props}><rect x="3" y="4" width="18" height="16" rx="2.5" /><circle cx="9" cy="10" r="1.5" /><path d="m21 16-5-5-9 9" /></Outline>;
+}
+
+export function Cpu(props: IconProps) {
+  return <Outline {...props}><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9.5 9.5h5v5h-5zM9 2.5V6m6-3.5V6M9 18v3.5m6-3.5v3.5M2.5 9H6m-3.5 6H6m12-6h3.5M18 15h3.5" /></Outline>;
+}
+
+export function Info(props: IconProps) {
+  return <Outline {...props}><circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8h.01" /></Outline>;
+}
+
 export function Gmail(props: IconProps) {
   return (
     <svg width={24} height={24} viewBox="0 0 24 24" aria-hidden="true" focusable="false" {...props}>

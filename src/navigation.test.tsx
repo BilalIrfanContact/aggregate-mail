@@ -39,7 +39,7 @@ async function mount(native = false, setup?: (state: State, storage: Storage) =>
   let navigate: ((direction: "back" | "forward") => void) | undefined;
   let subscriptions = 0;
   const desktop: NonNullable<Window["desktop"]> = {
-    platform: native ? "linux" : "darwin", oauthUrl: "", windowCommand() {},
+    platform: native ? "linux" : "darwin", materials: false, oauthUrl: "", windowCommand() {},
     onWindowState: () => () => {}, onAccountConnected: () => () => {},
     onMailChanged: (callback) => { changed = callback; return () => { changed = undefined; }; },
     onNavigation: (callback) => {
@@ -183,7 +183,7 @@ test("mounted App traverses intentional mail routes, restores context and trunca
     await app.click(app.back());
     assert.equal(app.container.querySelector<HTMLInputElement>(".search input")?.value, "Other message");
     assert.equal(app.button("1first").getAttribute("aria-pressed"), "true");
-    assert.equal(app.container.querySelector(".tabs .active")?.getAttribute("aria-current"), "page");
+    assert.equal(app.container.querySelector(".sidebar-group .active")?.getAttribute("aria-current"), "page");
     await app.click(app.back()); // All keystrokes form one search visit.
     assert.equal(app.container.querySelector<HTMLInputElement>(".search input"), null);
     await app.click(app.forward());
@@ -443,4 +443,36 @@ test("empty and rejected formatting retain readable text and consent-controlled 
       assert.equal(app.container.querySelector(".message-images img"), null, "reopening requires fresh consent");
     } finally { await app.close(); }
   }
+});
+
+test("sidebar toggle hides the panel and the choice survives a restart", async () => {
+  const app = await mount();
+  try {
+    await app.click(app.button("Hide sidebar"));
+    // The panel stays mounted so it can animate closed, but leaves the focus order.
+    assert.ok(app.container.querySelector(".sidebar.closed[inert]"));
+    assert.equal(app.window.localStorage.getItem("sidebar"), "closed");
+    await app.click(app.button("Show sidebar"));
+    assert.equal(app.container.querySelector(".sidebar.closed, .sidebar[inert]"), null);
+  } finally { await app.close(); }
+  const restarted = await mount(false, (_state, storage) => storage.setItem("sidebar", "closed"));
+  try {
+    assert.ok(restarted.container.querySelector(".sidebar.closed[inert]"));
+  } finally { await restarted.close(); }
+});
+
+test("Settings replaces the mail sidebar with its sections and shows one at a time", async () => {
+  const app = await mount();
+  try {
+    await app.click(app.button("Settings"));
+    assert.equal(app.container.querySelector('[aria-label="Mail views"]'), null);
+    assert.ok(app.container.querySelector("[data-interaction-settings]"));
+    await app.click(app.button("Appearance"));
+    assert.equal(app.container.querySelector("[data-interaction-settings]"), null);
+    await app.click(app.container.querySelector<HTMLButtonElement>('[role="radio"][aria-label="Purple"]')!);
+    assert.equal(app.window.document.documentElement.style.getPropertyValue("--accent"), "#a78bfa");
+    assert.equal(JSON.parse(app.window.localStorage.getItem("emc2.appearance.v1")!).accent, "purple");
+    await app.click(app.button("Close settings"));
+    assert.ok(app.container.querySelector('[aria-label="Mail views"]'));
+  } finally { await app.close(); }
 });
