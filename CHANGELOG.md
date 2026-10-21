@@ -76,6 +76,7 @@
 - Show the exact cached original message in Reply with safe formatting, privacy masking and remote images blocked.
 
 - Keep tiny and zero-sized newsletter text wrappers readable without disturbing text flow, preserve image height caps in placeholders, and keep inline image status prose out of sender layouts.
+- Expand the showcase website into a scrollable landing page covering accounts, inbox actions, keyboard use, privacy, drafts, themes, notifications and local MCP. Reuse labeled demo captures and add platform downloads and an MIT license footer while preserving public counts.
 
 - Add Read, Snooze/Return to inbox, Reply, Archive and Pin beside Trash on each mail row. Use a raised 3D toolbar that follows built-in and custom themes, mode and accent. Keep row actions tied to their own email, with visible touch controls and the existing provider safeguards.
 

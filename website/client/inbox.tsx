@@ -112,7 +112,7 @@ export function Inbox() {
 
   return (
     <div
-      className="flex h-full w-full flex-col overflow-hidden bg-[#0a0a0a] text-[13px] text-[#ededed] outline-none"
+      className="flex h-full w-full flex-col overflow-hidden bg-[#0a0a0a] text-[13px] text-[#ededed] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white [&_button:focus-visible]:outline-2 [&_button:focus-visible]:-outline-offset-2 [&_button:focus-visible]:outline-white"
       onKeyDown={(event) => {
         if (event.key === "ArrowDown") {
           event.preventDefault();
@@ -125,16 +125,17 @@ export function Inbox() {
       style={{ colorScheme: "dark" }}
       tabIndex={0}
     >
-      <div className="flex h-10 shrink-0 items-center gap-4 border-b border-white/[0.07] px-3">
-        <span aria-hidden="true" className="flex items-center gap-1.5">
+      <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/[0.07] px-3 py-2">
+        <span aria-hidden="true" className="hidden items-center gap-1.5 sm:flex">
           <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
         </span>
 
-        <nav className="flex items-center gap-4">
+        <nav aria-label="Demo mail views" className="flex items-center gap-4">
           {tabs.map((entry) => (
             <button
+              aria-pressed={tab === entry.key && !query}
               key={entry.key}
               className="flex items-baseline gap-1.5 text-[13px] transition-colors"
               onClick={() => setTab(entry.key)}
@@ -147,23 +148,26 @@ export function Inbox() {
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
           <button
+            aria-pressed={account === "all"}
             className="rounded px-1.5 py-0.5 text-[12px] transition-colors"
             onClick={() => setAccount("all")}
-            style={{ background: account === "all" ? "rgba(255,255,255,0.055)" : undefined, color: "#b4b4b4" }}
+            style={{ color: account === "all" ? "#ededed" : "#7d7d7d", fontWeight: account === "all" ? 600 : 400 }}
             type="button"
           >
             All
           </button>
           {accounts.map((entry, index) => (
             <button
+              aria-label={`Filter demo mail by ${entry.label}`}
+              aria-pressed={account === entry.key}
               key={entry.key}
-              className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[12px] transition-colors hover:bg-white/[0.03]"
+              className="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[12px]"
               onClick={() => setAccount(entry.key)}
               style={{
-                background: account === entry.key ? "rgba(255,255,255,0.055)" : undefined,
                 color: account === entry.key ? "#ededed" : "#7d7d7d",
+                fontWeight: account === entry.key ? 600 : 400,
               }}
               title={entry.label}
               type="button"
@@ -175,13 +179,13 @@ export function Inbox() {
               >
                 {entry.glyph}
               </span>
-              <span className="hidden sm:inline">{entry.label}</span>
+              <span className="hidden xl:inline">{entry.label}</span>
             </button>
           ))}
           <input
             aria-label="Search mail"
-            className="h-6 w-[104px] rounded border border-white/[0.07] bg-white/[0.02] px-2 text-[12px] text-[#ededed] outline-none placeholder:text-[#5a5a5a] focus:border-white/20"
-            onInput={(event) => setQuery((event.target as HTMLInputElement).value)}
+            className="h-7 min-w-0 w-[104px] rounded border border-white/[0.07] bg-transparent px-2 text-[12px] text-[#ededed] placeholder:text-[#5a5a5a] focus-visible:outline-2 focus-visible:outline-white"
+            onInput={(event) => setQuery(event.currentTarget.value)}
             placeholder="Search mail"
             value={query}
           />
@@ -209,9 +213,9 @@ export function Inbox() {
                     </div>
                   )}
                   <button
-                    className="relative flex h-7 w-full items-center px-4 text-left transition-colors hover:bg-white/[0.03]"
+                    aria-pressed={active}
+                    className="relative flex h-7 w-full items-center px-4 text-left"
                     onClick={() => select(message)}
-                    style={{ background: active ? "rgba(255,255,255,0.055)" : undefined }}
                     type="button"
                   >
                     {active && <span className="absolute inset-y-0 left-0 w-[2px] bg-[#6b9cff]" />}

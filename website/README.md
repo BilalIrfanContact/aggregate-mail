@@ -1,8 +1,14 @@
 # Emc² showcase site
 
-One screen for the Emc² desktop mail client: the headline and download button on the left, and on the right
-the mail providers the app connects to, drawn around the app itself and joined by lines with a dot running
-inward along each one.
+A scrollable landing page for the Emc² desktop mail client. The opening screen keeps the headline,
+download links, public counts and interactive demo inbox, with provider marks connected by moving dots.
+Dots are hidden when reduced motion is requested.
+
+Below it, sections cover Gmail and IMAP accounts, the six Inbox categories, Snooze, Archive and Teach,
+keyboard commands, encrypted local storage and privacy, autosaved drafts, themes, notifications and
+opt-in local MCP. The download section links to releases and the macOS source-install instructions;
+the footer links to downloads, GitHub and the MIT license. Local sorting needs no cloud processing;
+the page also explains what optional external AI sorting sends.
 
 ```sh
 npx lakebed dev
@@ -10,7 +16,8 @@ npx lakebed deploy
 ```
 
 It is a Lakebed capsule with no app npm dependencies. `server/index.ts` serves public star and download
-counts without sign-in, and Tailwind classes compile from `client/index.tsx`.
+counts without sign-in, and Tailwind classes compile from the client files. There are no CSS files or
+additional app dependencies.
 
 ## Download count
 
@@ -27,10 +34,9 @@ Build the website from this directory with `npx lakebed build --target claimed`.
 
 ## Provider marks
 
-`shared/providers.ts` holds the marks for Gmail, iCloud Mail, Proton Mail, Zoho Mail, HEY and Mail.com, taken
-from [Simple Icons](https://simpleicons.org) (CC0). The app reaches each of them with Google OAuth or its
-Custom IMAP path. Regenerate or extend the file by fetching `https://cdn.simpleicons.org/<slug>` and copying
-the `d` attribute and `fill` into an entry.
+`shared/providers.ts` holds the marks for Gmail, iCloud Mail, Fastmail and Yahoo Mail. Gmail and iCloud
+come from [Simple Icons](https://simpleicons.org) (CC0); Fastmail and Yahoo come from theSVG. The app
+connects through Gmail OAuth or IMAP. The source file records each mark's viewBox, paths and color.
 
 The line-and-dot connectors follow the tracing-beam pattern Col verifies in
 [Aceternity UI](https://ui.aceternity.com/components/tracing-beam), reimplemented in Preact with SVG
@@ -38,5 +44,11 @@ The line-and-dot connectors follow the tracing-beam pattern Col verifies in
 
 ## Screenshots
 
-`assets/inbox.jpg` and `assets/settings.jpg` are the demo-mail captures used for the showcase images shared in
-chat. Nothing imports them, so they do not affect the deployed bundle.
+`assets/` contains earlier demo-mail captures. The page reuses `accounts.jpg` and `settings.jpg`, inlined
+as JPEG data URLs in `shared/screenshots.ts`, following the existing inlined app-icon approach. Lakebed
+serves no static assets beyond the favicon. The images have explicit dimensions, lazy loading and
+captions identifying the earlier interface. The accounts capture scrolls horizontally on narrow screens
+to keep its text legible. `assets/inbox.jpg` remains unused.
+
+When replacing a displayed capture, regenerate its base64 data URL from the matching JPEG and update
+its dimensions and alt text. Screenshot changes require no storage service or hosted asset URL.

@@ -5,6 +5,7 @@ import { appIcon } from "../shared/logo";
 import type { Provider } from "../shared/providers";
 import { providers } from "../shared/providers";
 import { Inbox } from "./inbox";
+import { Features } from "./features";
 
 const client = createClient<typeof app>();
 
@@ -56,7 +57,7 @@ function Lead({ provider, towardsApp }: { provider: Provider; towardsApp: boolea
         strokeOpacity={0.4}
         strokeWidth={1.3}
       />
-      <circle fill={provider.hex} r={2.8}>
+      <circle className="motion-reduce:hidden" fill={provider.hex} r={2.8}>
         <animateMotion
           dur="3.2s"
           path={towardsApp ? "M 0 4 H 100" : "M 100 4 H 0"}
@@ -70,7 +71,7 @@ function Lead({ provider, towardsApp }: { provider: Provider; towardsApp: boolea
 function StarLink({ count, href, label }: { count?: number | null; href: string; label: string }) {
   return (
     <a
-      className="flex items-center gap-1.5 rounded-full border border-neutral-800 px-3 py-1 text-xs text-neutral-400 transition hover:border-neutral-600 hover:text-white"
+      className="flex min-h-11 items-center gap-1.5 rounded-full border border-neutral-800 px-2 py-1 text-xs text-neutral-400 hover:border-neutral-600 hover:text-white sm:px-3"
       href={href}
       rel="noreferrer"
       target="_blank"
@@ -89,7 +90,7 @@ export function App() {
   const downloads = client.useQuery("downloads");
 
   useEffect(() => {
-    document.title = "Emc² — mail that sorts itself";
+    document.title = "Emc² | Desktop email for Gmail and IMAP";
     const font = document.createElement("link");
     font.rel = "stylesheet";
     font.href = "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap";
@@ -105,23 +106,22 @@ export function App() {
 
   return (
     <div
-      className="h-dvh overflow-hidden bg-neutral-950 text-neutral-300 antialiased"
+      className="min-h-dvh bg-black text-white antialiased [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-offset-4 [&_a:focus-visible]:outline-white [&_[tabindex]:focus-visible]:outline-2 [&_[tabindex]:focus-visible]:outline-offset-4 [&_[tabindex]:focus-visible]:outline-white"
       style={{ fontFamily: 'Geist, system-ui, -apple-system, "Segoe UI", sans-serif' }}
     >
-      <header className="border-b border-neutral-900">
-        <div className="mx-auto flex h-16 max-w-[1544px] items-center justify-between gap-4 px-6">
-          <a className="flex items-center gap-3" href={GITHUB_REPO} rel="noreferrer" target="_blank">
+      <a className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-10 focus:bg-black focus:p-3" href="#inbox">Skip to features</a>
+      <header>
+        <div className="mx-auto flex min-h-16 max-w-[1544px] flex-wrap items-center justify-between gap-2 px-4 py-2 sm:px-6">
+          <a className="flex shrink-0 items-center gap-3" href={GITHUB_REPO} rel="noreferrer" target="_blank">
             <img alt="" className="h-6 w-6 rounded-md" height={256} src={appIcon} width={256} />
             <span className="text-[15px] font-medium tracking-tight text-white">Emc²</span>
           </a>
-          <nav className="flex items-center gap-3 text-sm sm:gap-4">
+          <nav aria-label="Main navigation" className="flex max-w-full flex-wrap items-center gap-2 text-sm sm:gap-4">
             <a
-              className="hidden text-neutral-400 transition hover:text-white sm:inline"
-              href={`${GITHUB_REPO}#readme`}
-              rel="noreferrer"
-              target="_blank"
+              className="hidden py-3 text-neutral-300 hover:underline sm:inline"
+              href="#inbox"
             >
-              How it works
+              Features
             </a>
             <StarLink count={stars?.github} href={GITHUB_REPO} label="GitHub" />
             <StarLink count={stars?.cafe} href={CAFE_REPO} label="git.cafe" />
@@ -130,49 +130,47 @@ export function App() {
       </header>
 
       <main>
-        <section className="relative px-6 pt-16 pb-10 sm:pt-24 xl:pt-20">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 -top-32 h-96 bg-gradient-to-b from-neutral-800/40 via-neutral-900/20 to-transparent blur-2xl"
-          />
-          <div className="relative mx-auto max-w-5xl">
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
+        <section aria-labelledby="hero-heading" className="px-4 pt-10 pb-10 sm:px-6 sm:pt-12">
+          <div className="mx-auto grid max-w-[1280px] gap-6 lg:grid-cols-2 lg:gap-12">
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl xl:text-6xl" id="hero-heading">
               Mail that sorts itself, and stays on your machine.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-neutral-400">
-              A desktop email client for Windows, macOS and Linux. Connect Gmail, iCloud, Fastmail, Yahoo or any
-              IMAP server — every inbox is read, sorted and kept in one encrypted store you own.
-            </p>
-            <div className="mt-10 flex flex-wrap items-center gap-3">
-              <a
-                className="rounded-full bg-white px-6 py-3 text-sm font-medium text-neutral-950 transition hover:bg-neutral-200"
-                href={RELEASES}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Download for Windows
-              </a>
-              <a
-                className="rounded-full border border-neutral-800 px-6 py-3 text-sm font-medium text-neutral-300 transition hover:border-neutral-600 hover:text-white"
-                href={GITHUB_REPO}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Read the source
-              </a>
+            <div>
+              <p className="max-w-2xl text-lg leading-relaxed">
+                A desktop email client for Windows, macOS and Linux. Connect Gmail, iCloud, Fastmail, Yahoo or any
+                IMAP server. Read, sort and keep mail in one encrypted local store.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <a
+                  className="rounded-full bg-white px-6 py-3 text-sm font-medium text-black hover:underline"
+                  href={RELEASES}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Download for Windows
+                </a>
+                <a
+                  className="rounded-full border border-neutral-800 px-6 py-3 text-sm font-medium hover:border-neutral-600 hover:underline"
+                  href={GITHUB_REPO}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Read the source
+                </a>
+              </div>
+              <p className="mt-4 text-sm leading-relaxed text-neutral-400">
+                {typeof downloads === "number" ? (
+                  <span className="mr-3 text-white">
+                    <span className="tabular-nums">{downloads.toLocaleString("en-US")}</span> downloads
+                  </span>
+                ) : null}
+                Unsigned Windows build · <a className="underline underline-offset-4" href="#download">macOS and Linux options</a>
+              </p>
             </div>
-            <p className="mt-4 text-xs text-neutral-500">
-              {typeof downloads === "number" ? (
-                <span className="mr-3 text-white">
-                  <span className="tabular-nums">{downloads.toLocaleString("en-US")}</span> downloads
-                </span>
-              ) : null}
-              Unsigned build · macOS and Linux installers on the same releases page
-            </p>
           </div>
         </section>
 
-        <section className="px-6">
+        <div aria-label="Interactive inbox demo with synthetic mail" className="px-4 sm:px-6">
           <div className="grid grid-cols-1 xl:w-auto xl:grid-cols-[124px_minmax(0,1280px)_124px] xl:justify-center">
             <div className="hidden xl:flex xl:flex-col xl:items-end xl:gap-[70px] xl:pt-12">
               {left.map((provider) => (
@@ -189,7 +187,7 @@ export function App() {
                   <Chip key={provider.name} provider={provider} />
                 ))}
               </div>
-              <div className="aspect-[1280/800] overflow-hidden rounded-2xl border border-neutral-900 bg-neutral-900/40 shadow-2xl">
+              <div className="h-[340px] overflow-hidden bg-[#0a0a0a] sm:h-[min(42vh,420px)] sm:min-h-[280px]" data-ui>
                 <Inbox />
               </div>
             </div>
@@ -203,8 +201,37 @@ export function App() {
               ))}
             </div>
           </div>
+          <p className="mx-auto mt-3 max-w-[1280px] text-sm text-neutral-400">Interactive demo with sample mail. Current features below.</p>
+        </div>
+
+        <Features />
+
+        <section aria-labelledby="download-heading" className="scroll-mt-10 px-4 pb-20 sm:px-6 sm:pb-28" id="download">
+          <div className="mx-auto grid max-w-[1280px] gap-10 lg:grid-cols-2 lg:gap-16">
+            <div>
+              <h2 className="text-4xl font-medium tracking-tight sm:text-5xl" id="download-heading">Get Emc²</h2>
+              <p className="mt-6 max-w-md text-lg leading-relaxed">Windows, macOS and Linux. Source available under the MIT license.</p>
+              <a className="mt-8 inline-flex min-h-11 items-center rounded-full bg-white px-6 py-3 text-sm font-medium text-black hover:underline" href={RELEASES} rel="noreferrer" target="_blank">View downloads</a>
+            </div>
+            <ul className="space-y-7 text-lg leading-relaxed">
+              <li><a className="inline-block py-2 font-medium underline underline-offset-4" href={RELEASES} rel="noreferrer" target="_blank">Windows</a><p className="text-neutral-300">Setup installer (.exe). Unsigned; Windows may show a publisher warning.</p></li>
+              <li><a className="inline-block py-2 font-medium underline underline-offset-4" href={`${GITHUB_REPO}#macos`} rel="noreferrer" target="_blank">macOS</a><p className="text-neutral-300">Build locally from source with ad-hoc signing. Release DMGs are not notarized.</p></li>
+              <li><a className="inline-block py-2 font-medium underline underline-offset-4" href={RELEASES} rel="noreferrer" target="_blank">Linux</a><p className="text-neutral-300">AppImage for x64.</p></li>
+            </ul>
+          </div>
         </section>
       </main>
+
+      <footer className="px-4 pb-8 sm:px-6">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-x-8 gap-y-3">
+          <span className="text-2xl font-medium tracking-tight">Emc²</span>
+          <nav aria-label="Footer" className="flex flex-wrap gap-x-6 text-sm">
+            <a className="py-3 hover:underline" href={RELEASES} rel="noreferrer" target="_blank">Download</a>
+            <a className="py-3 hover:underline" href={GITHUB_REPO} rel="noreferrer" target="_blank">GitHub</a>
+            <a className="py-3 hover:underline" href={`${GITHUB_REPO}/blob/main/LICENSE`} rel="noreferrer" target="_blank">MIT license</a>
+          </nav>
+        </div>
+      </footer>
     </div>
   );
 }

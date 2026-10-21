@@ -1112,6 +1112,11 @@ Create a new worktree and feature branch for each new Emc² task. Bind the T3 Co
 
 ## Showcase downloads
 
+The website is a scrollable landing page with the original hero and interactive demo, followed by account,
+inbox, keyboard, privacy, drafts/settings, local MCP and platform download sections. Earlier demo captures
+are labeled and inlined in `website/shared/screenshots.ts`, since Lakebed only serves static favicons.
+Local sorting and optional external AI sorting are distinguished in the privacy copy.
+
 The [showcase website](../website/README.md#download-count) displays a combined download total for Windows,
 macOS and Linux installers from all published GitHub releases. Its public query follows pagination and
 caches complete totals for ten minutes, retaining the last count on failed requests. It adds no desktop
