@@ -738,6 +738,21 @@ telemetry. `npm test` includes `scripts/website-downloads.test.mjs`; the website
 `cd website` followed by `npx lakebed build --target claimed`. Hosted outbound requests require a claimed
 deployment. Browser and live deployment verification remain separate from these checks.
 
+## Showcase website headers
+
+The showcase website runs as a Lakebed capsule: `website/server/index.ts` exports `capsule()` and
+`website/client/index.tsx` renders the landing page at `https://emc2.lakebed.app`. The Lakebed hosting
+platform adds the app-shell security headers, so the landing page answers with
+`Content-Security-Policy: frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN` even though no capsule
+file sets them. The capsule API cannot override that policy. Lakebed SDK 0.0.40 lets `capsule()` accept only
+`name`, `favicon`, `auth`, `schema`, `queries`, `mutations`, `actions` and `endpoints`; the deploy request
+carries only the artifact, client bundle, client version, inspect policy, server env and table deletions;
+and `website/lakebed.json` holds only a `deployId`. The only response headers the capsule authors are
+endpoint responses such as `/share`, which bypass the platform's frame policy. Letting an external preview
+such as BuildHop embed the landing page therefore needs a Lakebed platform change to the app-shell
+`frame-ancestors` list; it cannot be made from a file under `website/`. Leave the separate
+`frame-ancestors 'none'` that `server/index.ts` sets for the local desktop mail service unchanged.
+
 ## Application rename
 
 Version 0.1.4 publishes the application as Emc². `desktop/migrate.ts` moves `mail`, `settings.env` and `Local State` from the pre-rename app-data folder into the new one on first launch and writes `.renamed-to-emc2` so the step never repeats. `desktop/migrate.test.ts` covers the carry, the single run, the no-overwrite case and the two no-op cases; run it with `npm test`. New installers are named `Emc2-<version>-<os>-<arch>.<ext>`; Linux x64 uses `x86_64`. The product name remains Emc². The Windows application id stays `dev.screen.aggregate-mail`, and the local MCP server is named `emc2`.
