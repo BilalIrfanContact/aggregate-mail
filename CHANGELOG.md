@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added opt-in CI for pull requests labelled `ci`: typecheck on GitHub, tests on Blacksmith, 8-minute job cap, self-disabling after 150 runs a month.
+- Remove standalone CI, automatic releases, CodeQL workflows and Dependabot configuration. Keep one manually dispatched installer/release workflow, with existing platform builds and release integrity gates. No workflow runs on merge groups, pushes or schedules.
 - Simplify Blacksmith CI: run Linux tests/build on pull requests and fresh
   four-platform tests/packages in the merge queue and release lanes. Remove
   sharding and result-reuse scripts, combine workflow/privacy checks, schedule
