@@ -37,7 +37,7 @@ Use the templates in `.github/ISSUE_TEMPLATE/` and apply one type label:
 
 ## Set up
 
-Node 24+ (CI uses 24) and npm. From the repository root:
+Node 24.22.1 or a newer 24.x (see `.nvmrc`) and npm. From the repository root:
 
 ```sh
 npm ci
@@ -119,11 +119,12 @@ The [journey map](docs/user-journeys.md) identifies focused checks; the
 
 ## CI and releases
 
-- `.github/workflows/ci.yml` runs on every PR and push to `main` on Windows x64,
-  macOS arm64, macOS x64 and Linux x64. Each platform runs the full `npm test`
-  suite split into parallel shards, plus `npm run build`, isolated
-  `check:desktop` (skipped on Linux) and an unpublished installer. The required
-  `Test and package (<platform>)` checks pass only when all of it does.
+- `.github/workflows/ci.yml` runs one **Checks** job for workflow validation and
+  commit email privacy. Pull requests run the full serial Linux test suite and
+  build. The merge queue, manual runs and release lanes test and package all
+  four platforms: Windows x64, macOS arm64, macOS x64 and Linux x64.
+  Every job uses Blacksmith. macOS x64 runs under Rosetta rather than on Intel
+  hardware. See [ADR 0062](docs/adr/0062-simple-blacksmith-ci.md).
 - `main` accepts changes only through a pull request with all conversations
   resolved and the four required checks green. Reviews are welcome but not
   required, so maintainers can merge their own work; a commit pushed to someone
@@ -133,8 +134,7 @@ The [journey map](docs/user-journeys.md) identifies focused checks; the
   deleting `main` are blocked.
 - The squash commit takes the PR title as its subject, so the title decides the
   release: a title starting with `Release ` or containing `[skip release]`
-  publishes nothing. After the queue lands a commit, CI and the release lane
-  reuse its merge-group test results instead of rerunning them.
+  publishes nothing. Release lanes run fresh tests before publishing.
 - CI stamps non-tag builds with a `-ci.` version (`scripts/set-build-version.mjs`,
   ADR 0004). Do not change `version` in a PR.
 - Every push to `main` except `Release ` commits and commits containing
@@ -150,7 +150,20 @@ The [journey map](docs/user-journeys.md) identifies focused checks; the
   run. Read the diff, especially workflow, script and dependency changes, first.
 - Workflow changes also require `actionlint` (1.7.12), the release/workflow tests,
   and the complete four-platform hosted CI run. CI runs workflow validation
-  before packaging; Dependabot groups weekly GitHub Actions updates.
+  before packaging.
+- Dependabot opens monthly grouped GitHub Actions and npm minor/patch updates.
+  Maintainers review and queue these pull requests; there is no dependency
+  auto-merge workflow. Review advisories and license changes before merging.
+  CodeQL runs weekly and on manual dispatch on Blacksmith.
+- Use Node 24.22.1 (`.nvmrc`; `nvm use` picks it up) for local builds and tests.
+- Commits must use your GitHub noreply email. Turn on GitHub's **Keep my email
+  addresses private** and **Block command line pushes that expose my email**,
+  then set `git config user.email <id>+<login>@users.noreply.github.com`. The
+  squash commit uses the email set on your GitHub account, so the setting
+  matters even if your local commits are clean. Check before pushing with
+  `node scripts/check-commit-emails.mjs origin/main..HEAD`. CI's
+  **Checks** job checks every pull request commit and the merge
+  queue's squash commit, and blocks the merge on any other address.
 - Minor and major releases are manual: bump the source version, then push the
   matching `v*` tag (`release.yml`).
 - Retry an automatic release through its original workflow run. Its tag points
