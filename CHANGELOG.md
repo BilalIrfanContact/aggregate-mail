@@ -8,6 +8,8 @@
 
 - Seed the large sync regression through the encrypted store so flag-batching checks use current summaries without incidental legacy-cache repair. Keep the 25,000-message workload and operation-count assertions.
 
+- Add an experimental standalone Android IMAP/SMTP client with multiple accounts, encrypted offline mail, a text reader, durable drafts and locked recovery after uncertain sends. This slice has no OAuth, attachments, background sync or desktop feature-parity claim.
+
 - Float Settings above the current mail or work view, with a compact header, section rail, independent scrolling, modal keyboard focus and reader-preserving history. Retain unsaved templates, pending-save locks and draft-safe navigation. Show one Linux local-key warning and preserve its session collapse preference across Settings and mail.
 
 - Resolve header searches from summaries immediately and decrypt only unresolved bodies. Keep confirmed header matches visible during body searches and display an explicit searching state instead of a premature empty result.
