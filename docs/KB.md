@@ -427,7 +427,20 @@ There is no new store kind, provider action or automatic approval path. See
 Outgoing attachments allow ten files, at most 512 KiB each and 1 MiB total.
 Received files beyond those limits retain unavailable metadata. Stored bytes
 and compose drafts are encrypted. Downloads require an explicit user action;
-files never open automatically. Disconnect removes cached mail, attachment
+files never open automatically. The reader offers explicit Download controls for
+all available file types, including spreadsheets and archives. Preview is limited
+to PDFs (canvas pages through a lazy-loaded local PDF.js worker) and PNG, JPEG,
+GIF, WebP, BMP and AVIF images. HTML, SVG and Office files remain download-only.
+Preview activation fetches only the authenticated local attachment endpoint;
+PDF links and actions are not exposed. Decoder fallbacks, CMaps and fonts ship
+locally through `scripts/pdf-assets.ts`; PDF.js uses JavaScript decoders so
+the renderer keeps its existing script execution policy. Enabling privacy clears previews and
+pending results; a new explicit preview may expose personal information in
+pixels. Image preview URLs are revoked on hide, privacy changes and unmount.
+Unavailable or oversized imports keep their existing metadata and explanation.
+Synthetic coverage is in `src/attachments.test.tsx` and
+`server/workspace.test.ts`; installed file-saving and PDF appearance require
+separate acceptance. Disconnect removes cached mail, attachment
 bytes, scoped rules and agent access. Confirmed commitments and project notes
 remain, with unavailable source evidence, so disconnect does not erase work.
 
