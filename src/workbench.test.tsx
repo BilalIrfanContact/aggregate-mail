@@ -250,7 +250,7 @@ async function mount(mode: "actions"|"calendar"|"projects"|"agents"|"assistants"
     holdPreparation:(lost=false)=>{lostPreparation=lost;preparation=new Promise<void>(resolve=>{settlePreparation=resolve;});return ()=>settlePreparation();},button,click,field,fill,submit,render,dom,setMode:(value:typeof mode)=>{mode=value;},filter:async(value:string)=>{accountFilter=value;await render();},enable:()=>{enabled=true;},fail:()=>{failure=true;},failMcp:()=>{mcpPatchFails=true;},failRefresh:(value:boolean)=>{refreshFailure=value;},privacy:async()=>{privacy=true;await render();},async close(){await act(async()=>{releaseEventSave();});await act(async()=>root.unmount());await act(async()=>{heldReads.forEach(read=>read.release());});dom.window.close();globalThis.fetch=previousFetch;for(const[key,descriptor]of old){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}}};
 }
 
-test("real App launches on the manual action screen without selecting or reading hidden Inbox mail",async()=>{const ui=await mount("actions",true);try{assert.equal(ui.container.querySelector("h1")?.textContent,"Today");assert.equal(ui.container.querySelector(".row"),null);assert.ok(ui.container.textContent?.includes("open tasks"));assert.equal(ui.requests.some(request=>request.method==="PATCH"),false);}finally{await ui.close();}});
+test("real App launches on the manual action screen without selecting or reading hidden Inbox mail",async()=>{const ui=await mount("actions",true);try{assert.equal(ui.container.querySelector("h1")?.textContent,"Today");assert.equal(ui.container.querySelector(".row"),null);assert.equal(ui.container.querySelectorAll(".main-head .work-view-tabs button").length,3);assert.equal(ui.requests.some(request=>request.method==="PATCH"),false);}finally{await ui.close();}});
 
 test("work controls and agent sections render inside the pane header",async()=>{const ui=await mount();try{
  assert.ok(ui.container.querySelector(".main-head .work-controls"),"work controls share the header");
@@ -831,7 +831,7 @@ test("templates keep source subjects out of private text and attributes and expl
 });
 
 for(const [mode,purpose] of [["actions","open tasks"],["calendar","Events, tracked work, follow-ups and snoozed mail"],["agents","Review changes before they run"]] as const)test(`${mode} explains its purpose`,async()=>{
- const ui=await mount(mode);try{assert.ok(ui.container.textContent?.includes(purpose));assert.equal(ui.requests.some(request=>request.method!=="GET"),false);}finally{await ui.close();}
+ const ui=await mount(mode);try{if(mode==="actions")assert.equal(ui.container.querySelectorAll(".main-head .work-view-tabs button").length,3);else assert.ok(ui.container.textContent?.includes(purpose));assert.equal(ui.requests.some(request=>request.method!=="GET"),false);}finally{await ui.close();}
 });
 
 test("agent sections preserve setup entries and presets never add immediate creation rights", async () => {
@@ -1085,8 +1085,8 @@ function narrowCalendarFocus(ui: Awaited<ReturnType<typeof mount>>) {
  return () => { prototype.focus = focus; style.remove(); };
 }
 
-for (const entry of ["event", "commitment", "snoozed"] as const) for (const exit of ["Back", "Escape"] as const) for (const source of entry === "snoozed" ? [false] : [false, true])
- test(`narrow Calendar ${entry} ${exit} ${source ? "source return" : "pane close"} returns focus after the origin renders`, async () => {
+for (const view of ["Agenda", "Day", "Week"] as const) for (const entry of ["event", "commitment", "snoozed"] as const) for (const exit of ["Back", "Escape"] as const) for (const source of entry === "snoozed" ? [false] : [false, true])
+ test(`narrow Calendar ${view} ${entry} ${exit} ${source ? "source return" : "pane close"} returns focus after the origin renders`, async () => {
   const ui = await mount("actions", true), restore = narrowCalendarFocus(ui);
   try {
    const day = new Date(), date = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,"0")}-${String(day.getDate()).padStart(2,"0")}`;
@@ -1096,7 +1096,7 @@ for (const entry of ["event", "commitment", "snoozed"] as const) for (const exit
    ui.events[0].start = new Date(`${date}T09:00`).toISOString(); ui.events[0].end = new Date(`${date}T09:30`).toISOString();
    ui.workspace.commitments.push({ id: "focus-task", accountId: "a", sourceMailId: "in-a", text: "Focus task", reason: "Synthetic", status: "needs-work", evidenceMailIds: ["in-a"], revision: 1, updatedAt: 1, history: [] });
    ui.state.messages[0].snoozedUntil = Date.now() + 60000;
-   await ui.click(sidebarButton(ui, "Calendar")); await ui.click(ui.button("Refresh workspace")); await ui.click(ui.button("Agenda"));
+   await ui.click(sidebarButton(ui, "Calendar")); await ui.click(ui.button("Refresh workspace")); await ui.click(ui.button(view));
    const origin = [...ui.container.querySelectorAll<HTMLButtonElement>(".calendar-agenda button")].find(button => button.textContent?.includes(entry === "event" ? "Focus event" : entry === "commitment" ? "Focus task" : "Snoozed"))!;
    assert.ok(origin); await act(async () => origin.focus()); await ui.click(origin);
    assert.equal(ui.dom.window.getComputedStyle(origin.closest(".work-main")!).display, "none", "fixture follows the actual selected-pane class");
@@ -1211,11 +1211,38 @@ test("Today status views preserve task identity and distinguish overdue, upcomin
   assert.ok(group("Overdue")?.textContent?.includes("Older commitment"));
   assert.ok(group("Upcoming")?.textContent?.includes("Future commitment"));
   assert.ok(!group("Overdue")?.textContent?.includes("Future commitment"));
-  const tab = (name: string) => [...ui.container.querySelectorAll<HTMLButtonElement>(".work-view-tabs button")].find(value => value.textContent === name)!;
+  const tab = (name: string) => [...ui.container.querySelectorAll<HTMLButtonElement>(".work-view-tabs button")].find(value => value.firstChild?.textContent === name)!;
+  assert.equal(tab("Waiting").querySelector(".work-tab-count")?.textContent, "1");
+  assert.ok(tab("Open").closest(".work-toolbar")?.contains(ui.button("Refresh workspace")));
+  assert.ok(tab("Open").closest(".work-toolbar")?.contains(ui.button("Add task")));
   await ui.click(tab("Waiting"));
   assert.deepEqual([...ui.container.querySelectorAll(".work-group .work-select strong")].map(value => value.textContent), ["Waiting commitment"]);
   await ui.click(tab("Completed"));
   assert.deepEqual([...ui.container.querySelectorAll(".work-group .work-select strong")].map(value => value.textContent), ["Completed commitment"]);
   assert.equal(ui.requests.some(request => request.method !== "GET"), false);
+ } finally { await ui.close(); }
+});
+
+
+test("Calendar Day and Week preserve navigation, point labels and cache-only reads", async () => {
+ const ui = await mount("calendar"); try {
+  const now = Date.now(), day = new Date(now).toLocaleDateString("en-CA");
+  ui.events.push({id:"schedule", source:"local", title:"Private Reader schedule example", start:new Date(now).toISOString(), end:new Date(now+60000).toISOString(), allDay:false, attendees:[], revision:1, updatedAt:1});
+  await ui.click(ui.button("Refresh workspace"));
+  await ui.click(ui.button("Day"));
+  assert.equal(ui.container.querySelector('.work-calendar[data-layout="day"]') !== null, true);
+  assert.equal(ui.container.querySelectorAll(".calendar-schedule-day").length, 1);
+  const origin = ui.container.querySelector<HTMLButtonElement>(".calendar-timed-entry")!;
+  assert.ok(origin.textContent?.includes("Private Reader schedule example"));
+  await ui.click(origin); await ui.click(ui.button("Back to calendar"));
+  assert.equal(document.activeElement, origin);
+  await ui.click(ui.button("Week"));
+  assert.equal(ui.container.querySelectorAll(".calendar-schedule-day").length, 7);
+  await ui.click(ui.button("Next week")); await ui.click(ui.button("Today"));
+  await act(async()=>ui.dom.window.dispatchEvent(new ui.dom.window.Event("focus")));
+  assert.equal(ui.requests.some(request=>request.method!=="GET"),false);
+  assert.ok(ui.container.querySelector(`[data-day="${day}"]`));
+  await ui.privacy();
+  assert.equal(ui.container.querySelector(".calendar-timed-entry")?.textContent?.includes("Private Reader"),false);
  } finally { await ui.close(); }
 });

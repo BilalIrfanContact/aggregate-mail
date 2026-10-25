@@ -1,5 +1,6 @@
+import { COMPOSE_HTML_LIMIT, validComposeMarkup } from "../shared/compose-content.js";
 import { parseICalendar, generateICalendar } from "./ical.js";
-import { google } from "googleapis";
+import { google } from "./google-api.js";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { ImapFlow } from "imapflow";
@@ -280,6 +281,7 @@ export async function validateImap(a: StoredAccount) {
   }
 }
 export class SentCopyError extends Error {}
+type CachedMail = Pick<ReadonlyMap<string, Mail>, "size" | "get" | "has">;
 
 // All providers expose the same read, update and send operations to the client.
 export const providers: Record<
@@ -287,7 +289,7 @@ export const providers: Record<
   {
     sent: (a: StoredAccount, bound: number) => Promise<{ messages: Incoming[]; truncated: boolean }>;
     thread?: (a: StoredAccount, threadId: string) => Promise<Incoming[]>;
-    list: (a: StoredAccount, cached: Map<string, Mail>, onBatch?: (batch: Incoming[]) => void, onWarning?: (warning: SyncFailure) => void, labels?: GmailLabel[]) => Promise<Incoming[]>;
+    list: (a: StoredAccount, cached: CachedMail, onBatch?: (batch: Incoming[]) => void, onWarning?: (warning: SyncFailure) => void, labels?: GmailLabel[], retain?: boolean) => Promise<Incoming[]>;
     images: (a: StoredAccount, m: Mail) => Promise<MailImage[]>;
     content: (a: StoredAccount, m: Mail) => Promise<{ html: string | null; images: MailImage[]; attachments?: MailAttachment[]; invitation?: Mail["invitation"] }>;
     update: (
@@ -337,7 +339,7 @@ export const providers: Record<
       }
       return messages;
     },
-    async list(a, cached, onBatch, _onWarning, labels) {
+    async list(a, cached, onBatch, _onWarning, labels, retain = true) {
       const auth = oauth();
       auth.setCredentials({ refresh_token: a.credentials.refreshToken });
       // Bound token refresh as well as message reads, using request cancellation.
@@ -415,7 +417,7 @@ export const providers: Record<
             }),
           );
           const batch = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
-          messages.push(...batch);
+          if (retain || !onBatch) messages.push(...batch);
           pageBatch.push(...batch);
           const failure = results.find((result) => result.status === "rejected");
           // Fresh mail stays progressive; cached-only changes share a page write.
@@ -462,6 +464,7 @@ export const providers: Record<
         cc: input.cc,
         subject: input.subject,
         text: input.body,
+        html: input.html,
         inReplyTo: input.inReplyTo,
         references: input.references || input.inReplyTo,
         icalEvent: await calendarMime(a, input),
@@ -528,7 +531,7 @@ function imapProvider() {
         else client.close();
       }
     },
-    async list(a: StoredAccount, cached: Map<string, Mail>, onBatch?: (batch: Incoming[]) => void, onWarning?: (warning: SyncFailure) => void) {
+    async list(a: StoredAccount, cached: CachedMail, onBatch?: (batch: Incoming[]) => void, onWarning?: (warning: SyncFailure) => void, _labels?: GmailLabel[], retain = true) {
       const client = imap(a);
       let phase: SyncFailure["phase"] = "connect";
       try {
@@ -560,7 +563,8 @@ function imapProvider() {
             const previous = cached.get(`${a.id}:${validity}:${m.uid}`);
             if (previous) {
               const incoming = { ...previous, unread: !m.flags?.has("\\Seen") };
-              result.push(incoming); batch.push(incoming);
+              if (retain || !onBatch) result.push(incoming);
+              batch.push(incoming);
               if (batch.length === 100) { onBatch?.(batch); batch = []; }
             } else missing.push(m.uid);
           }
@@ -578,7 +582,7 @@ function imapProvider() {
               if (!m.source) throw Object.assign(new Error(), { code: "READ_FAILED" });
               batch.push(await syncOperation(a.provider, "parse", () => parse(a, `${validity}:${m.uid}`, m.source!, !m.flags?.has("\\Seen"))));
             }
-            result.push(...batch);
+            if (retain || !onBatch) result.push(...batch);
             onBatch?.(batch);
             if (expected.size) incomplete();
             complete();
@@ -754,6 +758,7 @@ function imapProvider() {
         cc: input.cc,
         subject: input.subject,
         text: input.body,
+        html: input.html,
         inReplyTo: input.inReplyTo,
         references: input.references || input.inReplyTo,
         icalEvent: await calendarMime(a, input),
@@ -825,13 +830,16 @@ export const sendSchema = z.object({
     .max(998)
     .refine((v) => !/[\u0000-\u001f\u007f]/.test(v), "Subject must be one line"),
   body: z.string().min(1).max(1000000),
+  html: z.string().max(COMPOSE_HTML_LIMIT).optional(),
   inReplyTo: z
     .string()
     .max(998)
     .refine((v) => !/[\u0000-\u001f\u007f]/.test(v))
     .optional(),
   threadId: z.string().max(100).optional(),
-}).refine((input) => Buffer.byteLength(JSON.stringify(input), "utf8") <= 1900000, "Message exceeds the request size limit");
+}).refine(validComposeMarkup, "Formatted content must match its plain text alternative").refine((input) => Buffer.byteLength(JSON.stringify(input), "utf8") <= 1900000, "Message exceeds the request size limit");
+const { html: _richHtml, ...plainSendShape } = sendSchema.shape;
+export const plainSendSchema = z.object(plainSendShape).strict().refine((input) => Buffer.byteLength(JSON.stringify(input), "utf8") <= 1900000, "Message exceeds the request size limit");
 export type SendInput = z.infer<typeof sendSchema>;
 
 // Resolve encrypted, reviewed metadata instead of accepting calendar text from a send caller.
@@ -840,7 +848,7 @@ export async function calendarMime(account: StoredAccount, input: SendInput) {
   const { get } = await import("./store.js");
   const draft = get("draft", input.calendarDraft.id);
   if (!draft || draft.accountId !== account.id || draft.revision !== input.calendarDraft.revision || !draft.sendUnknown || !draft.invitation ||
-      draft.to !== input.to || !isDeepStrictEqual(draft.cc || [], input.cc || []) || draft.subject !== input.subject || draft.body !== input.body)
+      draft.to !== input.to || !isDeepStrictEqual(draft.cc || [], input.cc || []) || draft.subject !== input.subject || draft.body !== input.body || draft.html !== input.html)
     throw new Error("Invitation draft changed. Recover the saved draft before sending.");
   const context = draft.calendarContext;
   const event = context && get("calendarEvent", context.eventId);

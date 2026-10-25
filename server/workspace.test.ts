@@ -61,7 +61,7 @@ test("workspace HTTP preserves confirmed obligations, account boundaries and imm
         });
         try {
           const response = await request(route); assert.equal(response.status, 200);
-          assert.equal(parsedMail, 3, "one decrypt per cached mail, independent of proposal count");
+          assert.equal(parsedMail, 2, "only related conversation records decrypt, independent of proposal count");
           assert.equal(fingerprints, 1, "same-source fingerprint reused within this response");
           const data = await response.json();
           assert.ok((route === "/workspace" ? data.proposals : data).every((p: { sourceChanged: boolean }) => !p.sourceChanged));
@@ -69,6 +69,28 @@ test("workspace HTTP preserves confirmed obligations, account boundaries and imm
       }
       for (const p of store.all("proposal")) store.remove("proposal", p.id);
       store.remove("agent", g.id);
+    });
+    await t.test("proposal refresh tracks related body changes and missing sources without unrelated mail", async () => {
+      const { propose } = await import("./workspace.js");
+      const g = await grant();
+      const proposal = propose(g.id, "read", { mailId: mail.id });
+      const changed = async () => (await (await request("/workspace")).json()).proposals.find((item: { id: string }) => item.id === proposal.id).sourceChanged;
+      try {
+        assert.equal(await changed(), false);
+        const foreign = store.get("mail", "b:1")!;
+        store.put("mail", foreign.id, { ...foreign, body: "Unrelated account body changed" });
+        assert.equal(await changed(), false);
+        store.put("mail", mail.id, { ...mail, body: "Related source body changed" });
+        assert.equal(await changed(), true);
+        store.put("mail", mail.id, mail);
+        assert.equal(await changed(), false);
+        store.remove("mail", mail.id);
+        assert.equal(await changed(), true);
+      } finally {
+        store.put("mail", mail.id, mail);
+        store.put("mail", "b:1", { ...mail, id: "b:1", accountId: "b" });
+        store.remove("proposal", proposal.id); store.remove("agent", g.id);
+      }
     });
     await t.test("separate obligations persist, reopen explicitly and retain due-date history", async () => {
       const response = await request("/commitments", "POST", { accountId: "a", sourceMailId: mail.id, text: "SYNTHETIC-OBLIGATION logo", reason: "Confirmed manually", status: "needs-work", dueAt: 100, evidenceMailIds: [mail.id] });
@@ -151,7 +173,7 @@ test("workspace HTTP preserves confirmed obligations, account boundaries and imm
     await t.test("future-only Teach excludes the existing cache after sync and deletion leaves other accounts untouched", async () => {
       const b = store.get("mail", "b:1")!; store.put("mail", b.id, { ...b, reason: "Other account classification must survive" });
       const fresh = { ...mail, id: "a:future", remoteId: "1:9", messageId: "<future@example.test>" };
-      t.mock.method(providers.imap, "list", async (a: StoredAccount, cached: Map<string, Mail>) => a.id === "a" ? [...cached.values(), fresh] : [...cached.values()]);
+      t.mock.method(providers.imap, "list", async (a: StoredAccount) => { const cached = (await store.readMail(a.id)).filter(mail => mail.direction !== "sent"); return a.id === "a" ? [...cached, fresh] : cached; });
       const result = await backend.syncMail(); assert.deepEqual(result, { errors: [] });
       assert.equal(store.get("mail", mail.id)?.category, "important");
       assert.equal(store.get("mail", fresh.id)?.category, "other");
@@ -160,6 +182,20 @@ test("workspace HTTP preserves confirmed obligations, account boundaries and imm
       assert.equal((await request(`/rules/${rule.id}`, "DELETE")).status, 200);
       assert.equal(store.get("mail", "b:1")?.reason, "Other account classification must survive");
       store.remove("mail", fresh.id);
+    });
+    await t.test("MCP and agent proposal boundaries remain strictly plain text", async () => {
+      const agent = await grant();
+      const content = { to: "recipient@example.test", subject: "Synthetic", body: "Hello", html: "<strong>Hello</strong>" };
+      const before = store.all("proposal").length;
+      const response = await fetch(`${origin}/mcp`, {
+        method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", Authorization: `Bearer ${agent.token}` },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "propose_draft", arguments: { accountId: "a", content } } }),
+      });
+      const value = await response.json();
+      assert.ok(value.error || value.result?.isError === true, "MCP rejects the HTML field");
+      const { propose } = await import("./workspace.js");
+      for (const action of ["draft", "send"] as const) assert.throws(() => propose(agent.id, action, { accountId: "a", ...content }));
+      assert.equal(store.all("proposal").length, before);
     });
     await t.test("proposals approve only exact immutable payload once and reply approval saves a draft without sending", async () => {
       const agent = await grant();
@@ -238,7 +274,7 @@ test("workspace HTTP preserves confirmed obligations, account boundaries and imm
       assert.deepEqual(store.get("mail", mail.id)?.labelIds, ["INBOX", "UNREAD"]);
       assert.equal(store.get("mail", mail.id)?.direction, "received");
       assert.equal(store.get("mail", sent.id)?.direction, "sent");
-      t.mock.method(providers.imap, "list", async (_a: StoredAccount, cached: Map<string, Mail>) => { assert.equal(cached.has(sent.id), false); return [...cached.values()]; });
+      t.mock.method(providers.imap, "list", async (a: StoredAccount, cached: Parameters<typeof providers.imap.list>[1]) => { assert.equal(cached.has(sent.id), false); return (await store.readMail(a.id)).filter(mail => mail.direction !== "sent"); });
       await backend.syncMail(); assert.equal(store.get("mail", sent.id)?.direction, "sent"); assert.equal(store.get("mail", sent.id)?.archived, true);
       t.mock.method(providers.imap, "sent", async () => { throw new Error("private provider detail must not appear"); });
       const failed = await (await request("/accounts/a/sent/sync", "POST", { bound: 2 })).json();
