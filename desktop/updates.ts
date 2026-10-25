@@ -11,12 +11,16 @@ import type { DownloadExecutorTask } from "electron-updater/out/AppUpdater.js";
 import type { DownloadedUpdateHelper } from "electron-updater/out/DownloadedUpdateHelper.js";
 import { parseUpdateInfo } from "electron-updater/out/providers/Provider.js";
 import type { UpdateCommand, UpdateReason, UpdateState } from "../shared/updates.js";
+import { isHigherStableVersion, versionParts } from "../shared/updates.js";
+export { isHigherStableVersion } from "../shared/updates.js";
+import { MacSourceFailure, MacSourceUpdate, sourceCandidate, type MacInstallation } from "./mac-source-update.js";
 import { trustedWindowSender } from "./navigation.js";
 
 // Releases move to collection-of-things. Check it first; until it publishes a
 // newer stable release, the original repository still serves updates. Each
 // release must link only to its own repository's downloads.
-const releaseSources = ["collection-of-things/aggregate-mail", "screen-devs/aggregate-mail"].map((repository) => ({
+const releaseSources = (["collection-of-things/aggregate-mail", "screen-devs/aggregate-mail"] as const).map((repository) => ({
+  repository,
   latest: `https://api.github.com/repos/${repository}/releases/latest`,
   root: `https://github.com/${repository}/releases/download/`,
 }));
@@ -33,29 +37,10 @@ class UpdateFailure extends Error {
 }
 const fail = (reason: UpdateReason): never => { throw new UpdateFailure(reason); };
 
-function versionParts(version: string, stable: boolean) {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/.exec(version);
-  if (!match || version.length > 100 || (stable && (match[4] || match[5]))) return null;
-  const parts = match.slice(1, 4).map(Number);
-  if (parts.some((part) => !Number.isSafeInteger(part))) return null;
-  if (match[4]?.split(".").some((part) => !part || (/^\d+$/.test(part) && part.length > 1 && part.startsWith("0")))) return null;
-  if (match[5]?.split(".").some((part) => !part)) return null;
-  return { parts, prerelease: !!match[4] };
-}
-export function isHigherStableVersion(candidate: string, current: string) {
-  const next = versionParts(candidate, true), installed = versionParts(current, false);
-  if (!next || !installed) return false;
-  for (let i = 0; i < 3; i++) {
-    if (next.parts[i] !== installed.parts[i]) return next.parts[i] > installed.parts[i];
-  }
-  return installed.prerelease;
-}
 
 export function unsupportedReason(target: Target): UpdateReason | undefined {
   if (!target.packaged) return "development";
-  // Squirrel.Mac requires a supported signed bundle; local ad-hoc packaging is not that route.
-  if (target.platform === "darwin") return "mac-signing";
-  if (!["x64", "arm64"].includes(target.arch) || !["win32", "linux"].includes(target.platform)) return "platform";
+  if (!["x64", "arm64"].includes(target.arch) || !["win32", "linux", "darwin"].includes(target.platform)) return "platform";
   if (target.platform === "linux" && (!target.appImage || !path.isAbsolute(target.appImage))) return "appimage";
 }
 
@@ -326,6 +311,8 @@ export async function createUpdater(candidate: Candidate, target: Target): Promi
 
 type Dependencies = {
   target: Target;
+  mac?: MacInstallation;
+  source?: (candidate: import("./mac-source-update.js").MacSourceCandidate, installation: MacInstallation) => MacSourceUpdate;
   publish: (state: UpdateState) => void;
   quiesce: (timeout: number) => Promise<void>;
   resume: () => void;
@@ -341,6 +328,7 @@ type Dependencies = {
 
 export class Updates {
   private state: UpdateState;
+  private source?: MacSourceUpdate;
   private running = false;
   private candidate?: Candidate;
   private updater?: Driver;
@@ -354,8 +342,9 @@ export class Updates {
     this.state = reason ? { phase: "unsupported", reason } : { phase: "idle" };
   }
   snapshot() { return { ...this.state }; }
-  private set(state: UpdateState) { if (!this.stopped) { this.state = state; this.deps.publish(this.snapshot()); } }
-  stop() { this.stopped = true; this.cancel?.cancel(); }
+  private set(state: UpdateState) { if (!this.stopped) { this.state = this.deps.target.platform === "darwin" ? { ...state, method: "mac-source" } : state; this.deps.publish(this.snapshot()); } }
+  stop() { this.stopped = true; this.cancel?.cancel(); this.source?.stop(); }
+  async dispose() { this.stop(); await this.source?.dispose(); }
   async command(command: UpdateCommand) {
     if (this.running || this.stopped || this.state.phase === "unsupported") return this.snapshot();
     this.running = true;
@@ -364,15 +353,36 @@ export class Updates {
       else if (command === "download" && this.state.phase === "available") await this.download();
       else if (command === "install" && this.state.phase === "ready") await this.install();
     } catch (error) {
-      const reason = error instanceof UpdateFailure ? error.reason : command === "check" ? "network" : command === "download" ? "download" : "installer";
-      this.set({ phase: reason === "metadata" || reason === "candidate" ? "unavailable" : "error", version: this.candidate?.version, reason });
+      const reason = error instanceof UpdateFailure ? error.reason : command === "check" ? "network" : command === "download" ? (this.source ? "source-build" : "download") : "installer";
+      this.set({ phase: reason === "metadata" || reason === "candidate" ? "unavailable" : "error", version: this.source?.candidate.version ?? this.candidate?.version, reason });
     } finally { this.running = false; }
     return this.snapshot();
   }
   private async check() {
+    await this.source?.dispose(); this.source = undefined;
     this.candidate = undefined; this.updater = undefined; this.downloaded = undefined;
     this.set({ phase: "checking" });
     const read = this.deps.read || readMetadata;
+    if (this.deps.target.platform === "darwin") {
+      let candidate: Awaited<ReturnType<typeof sourceCandidate>> = null;
+      for (const [index, source] of releaseSources.entries()) {
+        try {
+          const metadata = JSON.parse(await read(source.latest, 2 * 1024 * 1024));
+          candidate = await sourceCandidate(metadata, this.deps.target, read, source.repository);
+        } catch (error) {
+          if (index === releaseSources.length - 1) {
+            if (error instanceof MacSourceFailure || error instanceof SyntaxError) return fail("candidate");
+            throw error;
+          }
+        }
+        if (candidate) break;
+      }
+      if (!candidate) { this.set({ phase: "current" }); return; }
+      if (!this.deps.mac) return fail("source-target");
+      this.source = (this.deps.source || ((value, installation) => new MacSourceUpdate(value, installation)))(candidate, this.deps.mac);
+      this.set({ phase: "available", version: candidate.version });
+      return;
+    }
     let candidate: Candidate | undefined;
     for (const [index, source] of releaseSources.entries()) {
       try {
@@ -411,6 +421,12 @@ export class Updates {
     this.set({ phase: "available", version: candidate.version });
   }
   private async download() {
+    if (this.source) {
+      this.set({ phase: "downloading", version: this.source.candidate.version });
+      await this.source.build();
+      if (!this.stopped) this.set({ phase: "ready", version: this.source.candidate.version });
+      return;
+    }
     const candidate = this.candidate!, updater = this.updater!;
     this.set({ phase: "downloading", version: candidate.version, percent: 0 });
     this.downloadInvalid = false;
@@ -430,8 +446,9 @@ export class Updates {
     } finally { clearTimeout(timer); this.cancel = undefined; }
   }
   private async install() {
-    const candidate = this.candidate!, updater = this.updater!, file = this.downloaded!;
-    this.set({ phase: "installing", version: candidate.version });
+    const candidate = this.candidate, updater = this.updater, file = this.downloaded;
+    const version = this.source?.candidate.version ?? candidate!.version;
+    this.set({ phase: "installing", version });
     let closed = false;
     let handedOff = false;
     try {
@@ -440,15 +457,19 @@ export class Updates {
       await this.deps.drainRenderer(timeout).catch(() => fail("mail-busy"));
       if (this.stopped) return;
       if (!(await this.deps.closeWindow())) {
-        this.set({ phase: "ready", version: candidate.version, reason: "cancelled" });
+        this.set({ phase: "ready", version, reason: "cancelled" });
         return;
       }
       closed = true;
-      if (updater.installerPath !== file) return fail("verification");
-      await (this.deps.verify || verifyInstaller)(file, candidate).catch(() => fail("verification"));
+      if (this.source) await this.source.verify().catch(() => fail("verification"));
+      else {
+        if (updater!.installerPath !== file) return fail("verification");
+        await (this.deps.verify || verifyInstaller)(file!, candidate!).catch(() => fail("verification"));
+      }
       if (this.stopped) return;
       this.installerFailed = false;
-      await updater.quitAndInstall(false, true);
+      if (this.source) await this.source.install();
+      else await updater!.quitAndInstall(false, true);
       if (this.installerFailed) return fail("installer");
       handedOff = true;
     } catch (error) {

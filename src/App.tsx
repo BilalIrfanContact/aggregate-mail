@@ -971,9 +971,6 @@ export function App() {
       >
         <ToastStack toasts={toasts} onDismiss={dismissToast} position={notifications.position} preferences={notifications} onOpen={requestNotificationMail} />
         {palette && !updateInstalling && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
-        <div className="app-update-control" style={{ right: systemCaption ? 150 : drawsWindowControls && windowSide === "right" ? 76 : 12 }}>
-          <UpdateNotice bridge={window.desktop?.updates} onInstalling={setUpdateInstalling} />
-        </div>
         <div className="frame" inert={updateInstalling || palette}>
           <Sidebar
             open={sidebarShown}
@@ -1190,6 +1187,10 @@ export function App() {
           </main>
         )}
           </div>
+        </div>
+        {/* Native title-bar hit testing needs this no-drag region after the draggable pane headers. */}
+        <div className="app-update-control" style={{ right: systemCaption ? 154 : drawsWindowControls && windowSide === "right" ? 106 : 12 }}>
+          <UpdateNotice bridge={window.desktop?.updates} onInstalling={setUpdateInstalling} />
         </div>
         {contextMenu && menuMail && (
           <ContextMenu

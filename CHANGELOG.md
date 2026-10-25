@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Make macOS source-update fixtures independent of runner disk capacity while testing the unchanged 8 GB build and 1 GB replacement limits explicitly.
+
+- Reconcile macOS source updates with the repository move: prefer the current release repository, retain legacy fallback, and pin tag resolution and source checkout to the same repository. Preserve current quit guards and update validation.
+
+- Wait for synthetic update helpers to exit before removing their test workspaces on Windows.
+
+- Add a macOS source-update route: download a pinned stable release, build and sign it locally, verify and stage it, then drain mail and restart from the replacement while retaining the previous app. Preserve draft cancellation, encrypted profiles and Windows/Linux updater checks. Git, Node 24+, npm and Xcode Command Line Tools remain required.
+
+- Keep the app update icon clickable over native title bars by placing its no-drag region after the pane headers. Preserve its position and availability while installation blocks the mail interface.
 - Update mail parsing (mailparser 3.12, nodemailer 10.2, explicit HTML conversion error check), Electron 44.9 and electron-builder 26.18, react/react-dom 19.3, express 5.3, zod 4.6, htmlparser2 12, electron-updater 6.8.11, jsdom 30, happy-dom 21, concurrently 10, fast-uri 3.1.9 and undici 6.29.1/7.30.1.
 - Keep automatic release versions stable across full-run and build-job retries after tagging succeeds. Reuse a newer stable tag only at the exact source commit; keep manual source-version matching.
 - Fall back to the original update repository when the preferred release's manifest cannot be read or validated, preserving source and installer integrity checks.

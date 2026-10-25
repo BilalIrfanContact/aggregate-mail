@@ -24,12 +24,35 @@ await build({
   platform: "node", format: "cjs", packages: "external",
   plugins: [{ name: "startup-adapters", setup(builder) {
     builder.onResolve({ filter: /^node:child_process$/ }, args => args.namespace === "fixture" ? ({ path: args.path, external: true }) : ({ path: "child-process", namespace: "fixture" }));
+    builder.onResolve({ filter: /^\.\/updates\.js$/ }, () => ({ path: "updates", namespace: "fixture" }));
     builder.onResolve({ filter: /^electron$/ }, () => ({ path: "electron", namespace: "fixture" }));
     // The one runtime dependency main.ts loads is resolved from this repository.
     builder.onResolve({ filter: /^jsonc-parser$/ }, () => ({ path: require.resolve("jsonc-parser"), external: true }));
     builder.onResolve({ filter: /server\/index\.js$/ }, () => ({ path: "backend", namespace: "fixture" }));
     builder.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path: module }) => ({
-      loader: "js", contents: module === "child-process" ? `
+      loader: "js", contents: module === "updates" ? `
+        import { app } from "electron";
+        import { appendFileSync } from "node:fs";
+        const config = JSON.parse(process.env.TEST_STARTUP);
+        const audit = value => appendFileSync(config.audit, JSON.stringify({helper:false, value}) + '\\n');
+        export class Updates {
+          constructor(deps) { globalThis.testUpdateChanged = () => deps.publish({ phase: 'idle' }); }
+          async command() {
+            if (config.quitDisposal) setTimeout(() => {
+              setTimeout(() => { console.error('Quit remained cancelled after native dispatch unwound.'); app.exit(2); }, 500);
+              app.quit();
+              if (config.quitDisposal === 'pending') app.quit();
+            }, 0);
+          }
+          stop() { audit('updates:stop-only'); }
+          async dispose() {
+            audit('updates:disposing');
+            if (config.quitDisposal === 'pending') await new Promise(resolve => setTimeout(resolve, 30));
+            audit('updates:disposed');
+          }
+        }
+        export function registerUpdateIpc() {}
+      ` : module === "child-process" ? `
         import { spawn as realSpawn } from "node:child_process";
         export function spawn(executable, args, options) {
           if (!args.includes("--emc2-keychain-helper")) return realSpawn(executable, args, options);
@@ -65,7 +88,7 @@ await build({
         const explicit = switches.filter(arg => arg === '--user-data-dir' || arg.startsWith('--user-data-dir=')).at(-1);
         const requestedPath = explicit?.startsWith('--user-data-dir=') ? explicit.slice('--user-data-dir='.length) : undefined;
         const lock = path.join(config.appData, 'test-lock');
-        let locked = false;
+        let locked = false, nativeQuitting = false;
         function release() { if (locked) { unlinkSync(lock); locked = false; } }
         export const app = {
           isPackaged: config.packaged !== false,
@@ -83,6 +106,7 @@ await build({
             if (helper && config.helperSetupThrow) throw Error('SYNTHETIC_SECRET_MARKER');
             if (kind === 'userData') fixedPath = value;
           },
+          getVersion() { return "0.1.10"; },
           getAppPath() { return ${JSON.stringify(bundle)}; },
           requestSingleInstanceLock() {
             audit('lock'); if (config.denyLock || existsSync(lock)) return false;
@@ -93,15 +117,32 @@ await build({
           removeListener(event, handler) { handlers.set(event, (handlers.get(event) || []).filter(value => value !== handler)); },
           whenReady() { identity = name; audit('ready:' + name); return helper && config.rejectHelperReady ? Promise.reject(Error('SYNTHETIC_SECRET_MARKER')) : Promise.resolve(); },
           quit() {
+            if (nativeQuitting) { audit('quit:ignored-reentry'); return; }
+            if (config.quitDisposal) nativeQuitting = true;
             let prevented = false;
             for (const handler of handlers.get('before-quit') || []) handler({ preventDefault() { prevented = true; } });
             if (prevented) return;
+            if (config.quitDisposal && lastWindow && !lastWindow.isDestroyed()) {
+              lastWindow.close();
+              if (config.closedWindowCallbacks) setImmediate(() => {
+                globalThis.testMailChanged();
+                globalThis.testUpdateChanged();
+                for (const handler of handlers.get('activate') || []) handler();
+                audit('window:callbacks-ignored');
+              });
+            }
             if (config.quitShortcutCase) {
               quitCalls++; lastWindow.close();
               if (!lastWindow.destroyed) return;
               console.log(JSON.stringify({ quitShortcut: 'exited', quitCalls, shortcutInputs, shortcutPrevented, prompts }));
             }
-            for (const handler of handlers.get('will-quit') || []) handler({});
+            for (const handler of handlers.get('will-quit') || []) handler({ preventDefault() { prevented = true; } });
+            if (prevented) {
+              // Native Electron can checkpoint promise callbacks before cancelled quit dispatch unwinds.
+              if (config.quitDisposal) setImmediate(() => { nativeQuitting = false; audit('quit:unwound'); });
+              return;
+            }
+            if (config.quitDisposal) audit('quit:final');
             release(); process.exit(0);
           }, exit(code) { release(); process.exit(code); }
         };
@@ -163,7 +204,8 @@ await build({
           destroyed = false; visible = false; handlers = new Map(); contentHandlers = new Map();
           constructor(options) { lastWindow = this; windows++; this.options = options; }
           webContents = { mainFrame: {}, getURL: () => this.url,
-            setWindowOpenHandler() {}, on: (event, handler) => this.contentHandlers.set(event, handler), once() {}, send() {} };
+            setWindowOpenHandler() {}, on: (event, handler) => this.contentHandlers.set(event, handler), once() {},
+            send: () => { if (this.destroyed) throw Error('Object has been destroyed'); } };
           on(event, handler) {
             this.handlers.set(event, [...(this.handlers.get(event) || []), handler]);
           }
@@ -171,7 +213,7 @@ await build({
           removeListener(event, handler) { this.handlers.set(event, (this.handlers.get(event) || []).filter(value => value !== handler)); }
           async loadURL(url) { this.url = url; }
           getBounds() { return { x: 12, y: 34, width: 1100, height: 700 }; }
-          isVisible() { return this.visible; }
+          isVisible() { if (this.destroyed) throw Error('Object has been destroyed'); return this.visible; }
           isDestroyed() { return this.destroyed; }
           isMinimized() { if (this.destroyed) throw new TypeError('Object has been destroyed'); return false; }
           isMaximized() { return false; }
@@ -350,7 +392,8 @@ await build({
         import { createDecipheriv } from 'node:crypto';
         import path from 'node:path';
         const key = Buffer.from(process.env.MAIL_DATA_KEY, 'base64');
-        export async function startServer() {
+        export async function startServer(_port, _onConnected, onMailChanged) {
+          globalThis.testMailChanged = onMailChanged;
           const file = path.join(process.env.MAIL_DATA_DIR, 'mail.sqlite');
           if (existsSync(file)) {
             const bytes = readFileSync(file);
@@ -926,6 +969,26 @@ for (const chromeCase of ["cancel", "accept"]) test(`caption-control recreation 
   preserved(saved.profile, saved);
 });
 
+for (const quitDisposal of ["idle", "pending"]) test(`ordinary macOS quit resumes after native unwind and ${quitDisposal} updater disposal`, () => {
+  const current = fixture("Emc²"), audit = path.join(current.appData, "quit-audit");
+  const result = launch(current.appData, { quitDisposal, audit }, [], false);
+  assert.equal(result.status, 0, result.stderr);
+  const events = readFileSync(audit, "utf8").trim().split("\n").map(line => JSON.parse(line).value);
+  assert.deepEqual(events.filter(value => value.startsWith("updates:") || value === "quit:final"),
+    ["updates:disposing", "updates:disposed", "quit:final"]);
+  preserved(current.profile, current);
+});
+
+test("mail, update and activation callbacks ignore a destroyed window during async quit disposal", () => {
+  const current = fixture("Emc²"), audit = path.join(current.appData, "quit-audit");
+  const result = launch(current.appData, { quitDisposal: "pending", closedWindowCallbacks: true, audit }, [], false);
+  assert.equal(result.status, 0, result.stderr);
+  const events = readFileSync(audit, "utf8").trim().split("\n").map(line => JSON.parse(line).value);
+  assert.ok(events.indexOf("updates:disposing") < events.indexOf("window:callbacks-ignored"));
+  assert.ok(events.indexOf("window:callbacks-ignored") < events.indexOf("updates:disposed"));
+  assert.equal(events.at(-1), "quit:final");
+  preserved(current.profile, current);
+});
 
 for (const platform of ["linux", "darwin", "win32"]) for (const quitShortcutCase of ["plain", "cancel", "accept"])
  test(`Ctrl+Q uses normal quit and preserves draft ${quitShortcutCase} on ${platform}`, () => {

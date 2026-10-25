@@ -31,6 +31,7 @@ import { editingMenu } from "./context-menu.js";
 import { menuPosition, nativeMenuItems, overlayColors, readWindowControls, writeWindowControls, type WindowControls } from "./window-chrome.js";
 import { isExternalLink, isLocalNavigation, swipeNavigation, trustedWindowSender } from "./navigation.js";
 import { LEGACY_APP_NAME, migrateLegacyUserData } from "./migrate.js";
+import { explicitUpdateProfile } from "./mac-source-update.js";
 import type { Updates } from "./updates.js";
 import { canonicalKey, readCurrentRecord, migrateLegacyKey, MIGRATION_ERROR, type CurrentRecord } from "./keychain.js";
 import { isOpenCodeCredential, openCodeConfig } from "../shared/opencode.js";
@@ -79,6 +80,8 @@ let tray: Tray | undefined;
 let syncTimer: ReturnType<typeof setInterval> | undefined;
 let quitting = false;
 let updates: Updates | undefined;
+let updateDisposal: Promise<void> | undefined;
+let updatesDisposed = false;
 let updateClosing = false;
 let finishUpdateClose: ((accepted: boolean) => void) | undefined;
 // Outside macOS the window shows either drawn traffic lights or the system's caption buttons.
@@ -427,7 +430,7 @@ else {
           },
         });
         const openedWindow = window;
-        window.on("closed", () => { if (window === openedWindow) window = null; });
+        openedWindow.on("closed", () => { if (window === openedWindow) window = null; });
         if (restore?.maximized) window.maximize();
         // Hidden windows catch up from the encrypted cache when shown again.
         window.on("show", notifyMailChanged);
@@ -526,7 +529,7 @@ else {
       const closeWindow = () => new Promise<boolean>((resolve) => {
         if (!window || window.isDestroyed()) { resolve(false); return; }
         const closingWindow = window;
-        const closed = () => { window = null; finish(true); };
+        const closed = () => finish(true);
         const finish = (accepted: boolean) => {
           clearTimeout(timer);
           closingWindow.removeListener("closed", closed);
@@ -553,7 +556,16 @@ else {
       };
       if (!checking) {
         const { Updates, registerUpdateIpc } = await import("./updates.js");
+        let mac: import("./mac-source-update.js").MacInstallation | undefined;
+        if (isMac && app.isPackaged) {
+          try {
+            mac = { installed: path.dirname(path.dirname(path.dirname(process.execPath))),
+              helper: path.join(__dirname, "mac-update-helper.cjs"), home: app.getPath("home"),
+              profile: explicitUpdateProfile(process.argv, dataPath), quit: () => app.quit() };
+          } catch { /* An ambiguous restart profile disables updates, not ordinary startup. */ }
+        }
         updates = new Updates({
+          mac,
           target: { platform: process.platform, arch: process.arch, version: app.getVersion(),
             packaged: app.isPackaged, appImage: process.env.APPIMAGE },
           publish: (state) => window?.webContents.send("update-state", state),
@@ -668,8 +680,19 @@ else {
   app.on("before-quit", () => {
     quitting = true;
   });
-  app.on("will-quit", () => {
-    updates?.stop();
+  app.on("will-quit", (event) => {
+    if (isMac && updates && !updatesDisposed) {
+      event.preventDefault();
+      updateDisposal ??= updates.dispose().catch(() => {
+        console.error("Update workspace cleanup failed.");
+      }).then(() => {
+        updatesDisposed = true;
+        // Let the cancelled native quit unwind before starting another quit.
+        setImmediate(() => app.quit());
+      });
+      return;
+    }
+    if (!updatesDisposed) updates?.stop();
     clearInterval(syncTimer);
     tray?.destroy();
     server?.close();
