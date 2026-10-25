@@ -4,18 +4,29 @@
 :root {
   --radius-control: 8px;
   --radius-pane: 14px;
-  --sidebar: 196px;
-  --list-width: clamp(340px, 30vw, 480px);
+  --sidebar: 208px;
+  --list-width: clamp(320px, 28vw, 380px);
   --mail-row-low: 28px;
   --mail-row-medium: 34px;
   --mail-row-high: 48px;
   --mail-row-compact: 24px;
-  --mail-row-card-low: 58px;
-  --mail-row-card-medium: 78px;
-  --mail-row-card-high: 78px;
+  --mail-row-card-low: 80px;
+  --mail-row-card-medium: 100px;
+  --mail-row-card-high: 100px;
   --mail-row-card-compact: 52px;
   --mail-group-height: 30px;
   --subhead-height: 48px;
+  --chrome: color-mix(in srgb, var(--surface) 60%, var(--bg));
+  --primary-blue: #286cf2;
+  --primary-fill: var(--primary-blue);
+  --primary-top: color-mix(in srgb, var(--primary-fill) 84%, #fff);
+  --primary-bottom: color-mix(in srgb, var(--primary-fill) 90%, #fff);
+  --primary-border: color-mix(in srgb, var(--primary-fill) 78%, #143b85);
+  --primary-highlight: rgba(255, 255, 255, 0.55);
+  --primary-rim: rgba(255, 255, 255, 0.1);
+  --primary-shade: rgba(22, 72, 170, 0.3);
+  --primary-shadow: rgba(0, 0, 0, 0.17);
+  --primary-ink: #fff;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   /* A lightly damped spring: settles with a small overshoot, never loops. */
@@ -130,12 +141,10 @@
   --surface: #fdfefd;
 }
 
-/* Transparency: the OS material shows through the window frame, sidebar and
-   one shared pane tint laid over every working pane, so no pane stacks two
-   tints and every pane reads at the same depth. Faint text brightens one
-   step so previews, counts and meta stay readable over bright materials. */
+/* One adjustable tint covers the window. Child panes stay clear so their
+   backgrounds cannot stack into mismatched bands. Text remains opaque. */
 :root[data-glass] {
-  --pane-glass: color-mix(in srgb, var(--surface) 50%, transparent);
+  --pane-glass: color-mix(in srgb, var(--surface) var(--glass-opacity, 70%), transparent);
   /* A text-2/text-4 mix tracks each theme's ramp without a self-reference;
      applyAppearance writes the same mix inline for custom palettes. */
   --text-3: color-mix(in srgb, var(--text-2) 75%, var(--text-4));
@@ -145,17 +154,9 @@
   background: transparent;
 }
 :root[data-glass] .app {
-  background: color-mix(in srgb, var(--bg) 22%, transparent);
-}
-:root[data-glass] .sidebar {
-  background: color-mix(in srgb, var(--bg) 20%, transparent);
-}
-/* One tint layer covers the top bar and every working pane; each pane stays
-   transparent so nothing stacks a second tint. */
-:root[data-glass] .app-main {
   background: var(--pane-glass);
 }
-:root[data-glass] :is(.app-toolbar, .list-pane, .reader-pane, .settings-pane,
+:root[data-glass] :is(.sidebar, .app-main, .app-toolbar, .list-pane, .reader-pane, .settings-pane,
   .work-pane, .drafts-pane, .workspace) {
   background: transparent;
 }
@@ -164,13 +165,4 @@
 :root[data-glass] :is(.group, .agent-navigation, .today-mail > .mail-actions) {
   background: color-mix(in srgb, var(--surface) 60%, transparent);
   backdrop-filter: blur(12px);
-}
-:root[data-glass][data-scheme="light"] {
-  --pane-glass: color-mix(in srgb, var(--surface) 70%, transparent);
-}
-:root[data-glass][data-scheme="light"] .app {
-  background: color-mix(in srgb, var(--bg) 40%, transparent);
-}
-:root[data-glass][data-scheme="light"] .sidebar {
-  background: color-mix(in srgb, var(--bg) 30%, transparent);
 }

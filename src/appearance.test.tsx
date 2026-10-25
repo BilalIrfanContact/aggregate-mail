@@ -24,11 +24,36 @@ test("transparency picks the Windows material live and migrates the earlier on/o
   await withDesktop("win32", async (calls, dom) => {
     const { applyAppearance, defaultAppearance, readAppearance } = await import("./appearance");
     dom.window.localStorage.setItem("emc2.appearance.v1", JSON.stringify({ theme: "midnight", accent: "pink", glass: false }));
-    assert.deepEqual(readAppearance(), { mode: "dark", theme: "midnight", accent: "pink", transparency: "off", reading: "split", sizeByImportance: true, customThemes: [] });
+    assert.deepEqual(readAppearance(), { mode: "dark", theme: "midnight", accent: "pink", transparency: "off", glassOpacity: 70, reading: "split", sizeByImportance: true, customThemes: [] });
     for (const transparency of ["glass", "subtle", "off"] as const)
       applyAppearance({ ...defaultAppearance, transparency });
     assert.deepEqual(calls.filter((call) => !call.startsWith("scheme:")), ["acrylic", "mica", "none"]);
     assert.equal(dom.window.document.documentElement.hasAttribute("data-glass"), false);
+  });
+});
+
+test("window opacity persists endpoints, rejects invalid values and survives material and theme changes", async () => {
+  await withDesktop("win32", async (_calls, dom) => {
+    const { applyAppearance, defaultAppearance, readAppearance, saveAppearance } = await import("./appearance");
+    const root = dom.window.document.documentElement;
+    for (const glassOpacity of [0, 37, 100]) {
+      const value = { ...defaultAppearance, glassOpacity };
+      assert.equal(saveAppearance(value), true);
+      assert.equal(readAppearance().glassOpacity, glassOpacity);
+      for (const transparency of ["glass", "subtle", "off"] as const) {
+        applyAppearance({ ...value, transparency, theme: "midnight" }, "light");
+        assert.equal(root.style.getPropertyValue("--glass-opacity"), `${glassOpacity}%`);
+        assert.equal(root.hasAttribute("data-glass"), transparency !== "off");
+      }
+    }
+    for (const glassOpacity of [-1, 101, 20.5, "50", null]) {
+      dom.window.localStorage.setItem("emc2.appearance.v1", JSON.stringify({ glassOpacity }));
+      assert.equal(readAppearance().glassOpacity, 70);
+    }
+    assert.equal(saveAppearance({ ...defaultAppearance, glassOpacity: NaN }), false);
+    Object.assign(dom.window.desktop!, { materials: false });
+    applyAppearance({ ...defaultAppearance, glassOpacity: 0 });
+    assert.equal(root.hasAttribute("data-glass"), false, "unsupported platforms remain opaque");
   });
 });
 
@@ -48,6 +73,8 @@ test("light mode sets the scheme, a deeper accent and the native theme; System f
     applyAppearance({ ...defaultAppearance, mode: "light", accent: "blue" }, "light");
     assert.equal(root.dataset.scheme, "light");
     assert.equal(root.style.getPropertyValue("--accent"), "#2563eb");
+    assert.equal(root.style.getPropertyValue("--primary-fill"), "var(--primary-blue)");
+    assert.equal(root.style.getPropertyValue("--primary-ink"), "#fff");
     assert.ok(calls.includes("scheme:light"));
     assert.equal(resolveScheme("system", true), "light");
     assert.equal(resolveScheme("system", false), "dark");
@@ -88,6 +115,8 @@ test("custom and preview colors follow the resolved scheme and clear fully when 
       assert.equal(root.dataset.scheme, scheme);
       assert.equal(root.style.getPropertyValue("--bg"), theme.palettes[scheme].canvas);
       assert.equal(root.style.getPropertyValue("--accent"), theme.palettes[scheme].accent);
+      assert.equal(root.style.getPropertyValue("--primary-fill"), "var(--accent)");
+      assert.equal(root.style.getPropertyValue("--primary-ink"), scheme === "dark" ? "#000" : "#fff");
       assert.equal(root.style.getPropertyValue("--veil"), theme.palettes[scheme].veil);
     }
     applyAppearance(value, "dark", root, { scheme: "light", palette: { ...theme.palettes.light, canvas: "#ffeedd" } });
@@ -105,6 +134,8 @@ test("custom and preview colors follow the resolved scheme and clear fully when 
     assert.equal(root.style.getPropertyValue("--veil-hover"), "");
     assert.equal(root.style.getPropertyValue("--line-2"), "");
     assert.equal(root.style.getPropertyValue("--accent"), "#6b9cff");
+    assert.equal(root.style.getPropertyValue("--primary-fill"), "var(--primary-blue)");
+    assert.equal(root.style.getPropertyValue("--primary-ink"), "#fff");
   });
 });
 

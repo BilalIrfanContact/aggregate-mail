@@ -8,6 +8,32 @@ import { generatePalette, parseThemeFile, serializeThemeFile, type CustomTheme }
 let closeMountedApp: (() => Promise<void>) | undefined;
 afterEach(async () => { await closeMountedApp?.(); });
 
+test("window opacity applies immediately, persists and disables with transparency off", async () => {
+  const app = await mount(true, undefined, { platform: "darwin", materials: true });
+  let saved = "";
+  try {
+    await app.click(app.button("Settings"));
+    await app.click(app.button("Appearance"));
+    const input = app.window.document.querySelector<HTMLInputElement>('#window-opacity')!;
+    assert.equal(input.disabled, false);
+    await app.input(input, "35");
+    assert.equal(app.window.document.documentElement.style.getPropertyValue("--glass-opacity"), "35%");
+    assert.equal(app.container.querySelector('.opacity-label output')?.textContent, "35%");
+    saved = app.storage.getItem("emc2.appearance.v1")!;
+    assert.equal(JSON.parse(saved).glassOpacity, 35);
+    await app.click(themeButton(app, "Off"));
+    assert.equal(input.disabled, true);
+    await app.click(themeButton(app, "Glass"));
+    assert.equal(input.disabled, false);
+    assert.equal(input.value, "35");
+    assert.equal(app.mutations.length, 0);
+  } finally { await app.close(); }
+  const restarted = await mount(true, (_state, storage) => storage.setItem("emc2.appearance.v1", saved), { platform: "darwin", materials: true });
+  try {
+    assert.equal(restarted.window.document.documentElement.style.getPropertyValue("--glass-opacity"), "35%");
+  } finally { await restarted.close(); }
+});
+
 async function mount(native = false, setup?: (state: State, storage: Storage) => void, bridge: Partial<NonNullable<Window["desktop"]>> | boolean = {}) {
   const dom = new JSDOM("<!doctype html><div id='root'></div>", { url: "http://localhost/" });
   dom.window.HTMLElement.prototype.scrollTo = function (options?: ScrollToOptions | number, y?: number) {
@@ -1691,9 +1717,10 @@ test('pane tools live in the persistent toolbar and section controls share the t
     const update = ui.container.querySelector<HTMLElement>(".app-update-control")!;
     assert.equal(update.closest(".frame"), null, "the update control stays usable while the frame is inert");
     const tabs = ui.container.querySelector(".inbox-tabs")!;
-    assert.ok(tabs.parentElement?.classList.contains("main-head"), "Inbox tabs sit inside the header");
-    assert.ok(tabs.previousElementSibling?.classList.contains("pane-title"), "tabs follow the title");
-    assert.equal(ui.container.querySelectorAll(".inbox-tabs").length, 1, "no separate tabs row");
+    assert.ok(tabs.parentElement?.classList.contains("mail-category-bar"), "categories span the working area");
+    assert.equal(ui.container.querySelector(".mail-view-head"), null, "Inbox has no duplicated title row");
+    assert.ok(ui.container.querySelector(".mail-view > h1")?.classList.contains("visually-hidden"), "Inbox keeps its accessible heading");
+    assert.equal(ui.container.querySelectorAll(".inbox-tabs").length, 1, "one category strip");
     await ui.open("a:1");
     assert.ok(ui.container.querySelector(".reader-head"), "split layout shows the reader pane");
     for (const label of ["Filters", "Hide personal information"])
@@ -1705,12 +1732,13 @@ test('pane tools live in the persistent toolbar and section controls share the t
     await ui.click(ui.button("Sent"));
     const note = ui.container.querySelector(".head-note")!;
     assert.ok(note.parentElement?.classList.contains("main-head"), "the cached note sits inside the header");
-    assert.ok(note.previousElementSibling?.classList.contains("pane-title"));
+    assert.ok(note.closest(".mail-view")?.querySelector("h1.visually-hidden"), "cached-mail context retains the accessible view title");
     assert.equal(ui.container.querySelector(".list-pane > .search-help"), null, "no separate note row");
     await ui.click(ui.button("Settings"));
     assert.ok(ui.button("Hide personal information").closest(".app-toolbar"), "privacy stays in the toolbar on Settings");
     assert.equal(ui.container.querySelector('[aria-label="Filters"]'), null, "Settings has no Filters");
     await ui.click(ui.button("Drafts"));
+    assert.equal(ui.container.querySelector(".drafts-pane > .main-head"), null, "Drafts has no duplicated title row");
     assert.ok(ui.button("Hide personal information").closest(".app-toolbar"), "privacy stays in the toolbar on Drafts");
     assert.equal(ui.container.querySelector('[aria-label="Filters"]'), null, "Drafts has no Filters");
     await ui.click(ui.button("Agent review"));

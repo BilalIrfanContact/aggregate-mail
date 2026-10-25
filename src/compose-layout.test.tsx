@@ -24,6 +24,7 @@ test("composer discloses empty Cc, keeps recovered recipients visible and preser
   const cc = () => document.querySelector<HTMLInputElement>('input[type="email"][multiple]');
   try {
     await render(draft);
+    assert.equal(document.querySelector('.compose-actions .compose-save-status')?.nextElementSibling?.getAttribute('type'), 'submit');
     assert.equal(cc(), null);
     const disclose = document.querySelector<HTMLButtonElement>('[aria-label="Add Cc recipients"]')!;
     assert.equal(disclose.type, "button");
@@ -71,6 +72,7 @@ test("reply retains original context and file drops reuse attachment validation 
   const drop=async(files:File[])=>{const event=new dom.window.Event("drop",{bubbles:true,cancelable:true});Object.defineProperty(event,"dataTransfer",{value:{files,types:["Files"]}});await act(async()=>{document.querySelector('form')!.dispatchEvent(event);await task;});assert.equal(event.defaultPrevented,true);};
   try{
     await render(); assert.match(document.querySelector('[aria-label="Original email"]')!.textContent!,/Please confirm the delivery date/);
+    assert.equal(document.querySelector('[aria-label="Original email"]')?.getAttribute('tabindex'), '0', 'original email supports keyboard scrolling');
     assert.match(document.querySelector('.compose-format')!.textContent!,/From: me@example.test/);
     draft.accountId="b";await render();
     assert.match(document.querySelector('.compose-format')!.textContent!,/From: selected@example.test/);

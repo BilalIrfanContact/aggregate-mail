@@ -10,7 +10,7 @@ import type { MenuAction } from "../ui/ContextMenu";
 import { Archive, Check, Clock, Inbox, More, Pin, Reply, Trash } from "../ui/icons";
 import { Avatar } from "./Avatar";
 import { relative, shortLabel } from "./format";
-import { useMedia } from "../ui/useMedia";
+import { accountLabel } from "../mail-ui";
 
 type RowLayout = "inline" | "stacked" | "brief" | "card";
 type RowAction = Omit<MenuAction, "run"> & { run: (event: MouseEvent<HTMLButtonElement>) => void };
@@ -44,11 +44,10 @@ export function MailList<T extends Mail>({
   onMenuKey: (event: KeyboardEvent<HTMLElement>, mail: T) => void;
   actions?: (mail: T) => RowAction[];
 }) {
-  const touchActions = useMedia("(hover: none)", false);
   const { on: privacy } = useContext(PrivacyContext);
   const provider = (mail: Mail) => accounts.find((account) => account.id === mail.accountId)?.provider;
   return <MailListWindow messages={messages} selectedId={selectedId} focusSelection={focusSelection}
-    density={density} sort={sort} listRef={listRef} narrow={narrow} sizeByImportance={sizeByImportance} touchActions={touchActions || narrow}>{(m) => {
+    density={density} sort={sort} listRef={listRef} narrow={narrow} sizeByImportance={sizeByImportance}>{(m) => {
     const relevance = sizeByImportance ? m.relevance : 2;
     const layout: RowLayout = narrow
       ? "card"
@@ -58,6 +57,7 @@ export function MailList<T extends Mail>({
           ? "stacked"
           : "brief";
     const current = m.id === selectedId;
+    const accountIndex = accounts.findIndex((account) => account.id === m.accountId);
     const names = privacy ? collectPrivateNames(accounts, m) : [];
     const reason = privacy ? redactPrivateText(m.reason, names) : m.reason;
     const label = `${m.pinned ? "Pinned: " : ""}${m.unread ? "Unread: " : ""}${m.sender}, ${m.subject}`;
@@ -69,7 +69,7 @@ export function MailList<T extends Mail>({
     const time = <time>{relative(m.date)}</time>;
     return (
       <MailPrivacy key={m.id} mail={m}>
-        <div className={`mail-row${touchActions || narrow ? " with-action-strip" : ""}`}>
+        <div className="mail-row">
           <button
             id={`mail-${m.id}`}
             className={`row r${relevance} ${layout}${current ? " selected" : ""}${m.unread ? " unread" : ""}`}
@@ -96,6 +96,7 @@ export function MailList<T extends Mail>({
                 {density === "comfortable" && relevance > 1 && (
                   <span className="row-preview"><Redact text={previewText(m.preview)} /></span>
                 )}
+                {density === "comfortable" && accountIndex >= 0 && <span className="row-account"><Redact text={accountLabel(accounts[accountIndex], accountIndex, privacy)} /></span>}
               </span>
             ) : (
               <>

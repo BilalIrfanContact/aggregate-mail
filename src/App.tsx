@@ -42,7 +42,7 @@ import { MeetingDialog } from "./work/EventPanel";
 import { useWorkspace } from "./work/useWorkspace";
 import { openCommitment } from "../shared/commitment-dates";
 import { Reader, ReaderEmpty } from "./mail/Reader";
-import { tabName, viewNames, viewOrder, type View } from "./mail/format";
+import { sidebarViews, tabName, viewNames, viewOrder, type View } from "./mail/format";
 import { customLabels, textSizeShortcut, filterMail, matchesLabel, markMailRead } from "./mail-ui";
 import { reuseMailState } from "./mail-state";
 import { MailSearchApiContext, useMailSearch } from "./use-mail-search";
@@ -60,7 +60,7 @@ import { drawsWindowControls, systemCaption } from "./ui/TrafficLights";
 import { useMedia } from "./ui/useMedia";
 import { CredentialFallbackNotice } from "./shell/CredentialFallbackNotice";
 import { ToastStack, useToasts } from "./ui/Toasts";
-import { ArrowLeft, ArrowRight, Eye, EyeOff, SidebarIcon } from "./ui/icons";
+import { ArrowLeft, ArrowRight, ChevronRight, Eye, EyeOff, Mail as MailIcon, Settings as SettingsIcon, SidebarIcon } from "./ui/icons";
 
 // Direction the list pane enters from: tabs slide sideways, mail opens upward.
 type Motion = "forward" | "back" | "open" | "close";
@@ -96,6 +96,7 @@ export function App() {
   const settings = page === "settings";
   const inlineWorkView = view === "actions" || view === "projects" || view === "calendar";
   const workView = view === "actions" || view === "calendar" || view === "projects" || view === "agents";
+  const ViewIcon = settings ? SettingsIcon : sidebarViews.find((item) => item.view === view)?.Icon ?? MailIcon;
   const setSettings = (next: boolean | ((current: boolean) => boolean)) => {
     const value = typeof next === "function" ? next(settings) : next;
     navigate({ page: value ? "settings" : "mail", opened: false });
@@ -967,6 +968,7 @@ export function App() {
       <div
         className={`app${window.desktop ? " desktop" : ""}${privacy ? " private" : ""}`}
         data-platform={window.desktop?.platform}
+        data-view={settings ? "settings" : view}
         style={{ "--text-scale": textScale } as React.CSSProperties}
       >
         <ToastStack toasts={toasts} onDismiss={dismissToast} position={notifications.position} preferences={notifications} onOpen={requestNotificationMail} />
@@ -1006,6 +1008,12 @@ export function App() {
           />
           <div className="app-main">
             <PaneHeader className="app-toolbar" corner={corner("main")} maximized={maximized} lead={sidebarToggle}>
+              <div className="app-context" aria-label="Current view">
+                <span>{settings ? "Emc²" : workView ? "Workspace" : "Mail"}</span>
+                <ChevronRight size={12} color="currentColor" />
+                <ViewIcon size={16} color="currentColor" />
+                <strong>{settings ? "Settings" : viewNames[view]}</strong>
+              </div>
               {historyControls}
               <SearchToolbar inputRef={searchRef} query={settings || workView ? "" : query}
                 label={`Search ${settings || workView ? "all" : viewNames[view]} cached mail`}
@@ -1038,9 +1046,7 @@ export function App() {
             </div>
         {settings ? (
           <div className="settings-pane">
-            <PaneHeader className="main-head" corner={null} maximized={maximized}>
-              <h1 className="pane-title">Settings</h1>
-            </PaneHeader>
+            <h1 className="pane-title visually-hidden">Settings</h1>
             <CredentialFallbackNotice mode={window.desktop?.credentialFallback} />
             <SettingsPage
               notifications={notifications}
@@ -1108,29 +1114,28 @@ export function App() {
           </div>
         ) : view === "drafts" ? (
           <main className="drafts-pane">
-            <PaneHeader className="main-head" corner={null} maximized={maximized}>
-              <h1 className="pane-title">Drafts</h1>
-            </PaneHeader>
+            <h1 className="pane-title visually-hidden">Drafts</h1>
             <DraftList accounts={state.accounts} api={api} accountFilter={accountFilter} query={query}
-              refreshKey={state.draftCount} active={!compose} onOpen={openCompose} />
+              refreshKey={state.draftCount} active={!compose} onOpen={openCompose}
+              onAccount={(id) => navigate({ accountFilter: id, labelFilter: "all", selectedId: null, opened: false })} />
           </main>
         ) : workView ? (
           <main className="work-pane">
             <Workbench key={`${view}:${accountFilter}:${trackingSession}`} work={work} initialSource={trackingSource} initialItem={trackingItem} initialDraft={trackingDraft} onSourceConsumed={() => { setTrackingSource(undefined); setTrackingItem(undefined); setTrackingDraft(undefined); }} onModalChange={setWorkModal} onEventDirtyChange={setEventDirty} mode={view as "actions" | "calendar" | "projects" | "agents"} state={state} api={api} accountFilter={accountFilter} onOpen={inlineWorkView ? openWorkSource : jumpTo} onMailChanged={reload} onNotice={setNotice} onManageAssistants={() => navigate({ page: "settings", settingsSection: "mcp", opened: false })} onOpenDraft={openCompose}
-              renderHead={(tools) => <PaneHeader className="main-head" corner={null} maximized={maximized}><h1 className="pane-title">{viewNames[view]}</h1><div className="head-tools">{tools}</div></PaneHeader>}
+              renderHead={(tools) => <PaneHeader className="main-head work-action-head" corner={null} maximized={maximized}><h1 className="pane-title visually-hidden">{viewNames[view]}</h1><div className="head-tools">{tools}</div></PaneHeader>}
               readerOpened={opened} fullReading={!splitRoom} onCloseReader={closeReader}
               reader={selected && opened ? <div ref={readerRef} className="today-mail">{actions}{reader}</div> : undefined} />
           </main>
         ) : (
+          <div className="mail-view">
+              <h1 className="pane-title visually-hidden">{viewNames[view]}</h1>
+              {(view === "sent" || view === "all") && <PaneHeader className="main-head mail-view-head" corner={null} maximized={maximized}>
+                <span className="view-summary">{filtered.length} cached {filtered.length === 1 ? "message" : "messages"}</span>
+                {(view === "sent" || view === "all") && <div className="head-note">Cached mail only. <button type="button" title={accountFilter === "all" ? "Select one account to fetch up to 50 Sent messages" : "Fetch up to 50 Sent messages"} disabled={busy || accountFilter === "all"} onClick={() => void perform(async () => { const coverage = await api<SentCoverage>(`/accounts/${encodeURIComponent(accountFilter)}/sent/sync`, "POST", { bound: 50 }); if (coverage.error) throw new Error("Sent import failed. Existing cached mail remains available."); }, "Sent cache refreshed.")}>Fetch Sent</button>{accountFilter === "all" && <small>Choose an account first.</small>}</div>}
+              </PaneHeader>}
+              {view === "inbox" && !query && <div className="mail-category-bar"><InboxTabs tab={tab} unread={tabUnread} onTab={switchTab} /></div>}
           <main className={split ? "workspace split" : "workspace"}>
             <section className="list-pane">
-              <PaneHeader className="main-head" corner={null} maximized={maximized}>
-                <h1 className="pane-title">{viewNames[view]}</h1>
-                {view === "inbox" && !query && (
-                  <InboxTabs tab={tab} unread={tabUnread} onTab={switchTab} />
-                )}
-                {(view === "sent" || view === "all") && <div className="head-note">Cached mail only. <button type="button" title={accountFilter === "all" ? "Select one account to fetch up to 50 Sent messages" : "Fetch up to 50 Sent messages"} disabled={busy || accountFilter === "all"} onClick={() => void perform(async () => { const coverage = await api<SentCoverage>(`/accounts/${encodeURIComponent(accountFilter)}/sent/sync`, "POST", { bound: 50 }); if (coverage.error) throw new Error("Sent import failed. Existing cached mail remains available."); }, "Sent cache refreshed.")}>Fetch Sent</button>{accountFilter === "all" && <small>Choose an account first.</small>}</div>}
-              </PaneHeader>
               <CredentialFallbackNotice mode={window.desktop?.credentialFallback} />
               {opened && !split && actions}
               <div
@@ -1188,6 +1193,7 @@ export function App() {
               </section>
             )}
           </main>
+          </div>
         )}
           </div>
         </div>
