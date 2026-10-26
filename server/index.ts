@@ -11,7 +11,9 @@ import { all, get, syncMailCache, mailSummaryChanges, mailSummary, searchMail, d
 import { matchesRule } from "../shared/rules.js";
 import { mountWorkspace } from "./workspace.js";
 import { mountAgentProvider } from "./agent-provider.js";
+import { mountProviderSearch } from "./provider-search.js";
 import { mountDrafts } from "./drafts.js";
+import { mountContacts, removeAccountContacts } from "./contacts.js";
 import { calendarScopes, removeGoogleCalendar, saveCalendarAccess } from "./google-calendar.js";
 import { mountInvitations } from "./invitations.js";
 import { mountOffers } from "./offers.js";
@@ -108,6 +110,7 @@ app.use("/api", (req, res, next) => {
     !["GET", "HEAD"].includes(req.method) &&
     !/^\/accounts\/[^/]+\/drafts(?:\/[^/]+)?\/?$/.test(req.path) &&
     !req.path.startsWith("/calendar/") &&
+    !req.path.startsWith("/contacts") &&
     !req.path.startsWith("/send") &&
     req.path !== "/mcp" &&
     req.path !== "/storage/compact" &&
@@ -126,6 +129,8 @@ mountCalendar(app);
 mountOffers(app);
 mountInvitations(app);
 mountAgentProvider(app);
+mountContacts(app);
+mountProviderSearch(app, () => desktopEvents.emit("mail-changed"));
 app.get("/api/state", async (req, res) => {
   if (res.destroyed) return;
   const controller = new AbortController();
@@ -497,6 +502,7 @@ app.delete("/api/accounts/:id", (req, res) => {
     for (const draft of all("draft").filter((draft) => draft.accountId === req.params.id))
       remove("draft", draft.id);
     removeAccountAttachments(req.params.id);
+    removeAccountContacts(req.params.id);
     remove("coverage", req.params.id);
     removeGoogleCalendar(req.params.id);
     for (const offer of all("calendarOffer")) if (offer.accountId === req.params.id) remove("calendarOffer", offer.id);
