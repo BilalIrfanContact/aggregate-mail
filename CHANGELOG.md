@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Pair phones through a one-use QR invitation and matching-code host approval,
+  then unlock with passkeys. Keep host sessions available, revoke phone sessions
+  from Settings, and restrict recovery-password login to localhost. Generate and
+  protect fresh browser data keys in a persistent OS credential store, with no
+  key typing on phones or weaker fallback. Add a browser-only build command.
+- Patch transitive body-parser and ip-address dependencies flagged by npm audit.
+
 - Add Settings → Phone access for private Tailscale HTTPS browser access, with
   host-local confirmed setup, verified route ownership, Secure sessions,
   expiring route verification and safe removal. Preserve existing Serve routes.
