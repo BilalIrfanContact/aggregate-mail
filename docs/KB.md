@@ -1,5 +1,24 @@
 # Repository knowledge
 
+## Local browser access gate
+
+Browser startup imports `server/browser-preflight.ts` before storage. It requires
+`MAIL_WEB_PASSWORD`, externally provisioned `MAIL_DATA_KEY` and isolated
+`MAIL_DATA_DIR`, with canonical path checks and desktop/legacy marker refusal.
+`server/browser-access.ts` protects APIs and assets with one in-memory session,
+HttpOnly Strict cookie, exact host/origin checks and five attempts per minute.
+Sessions expire after 30 minutes of request inactivity or eight hours total.
+New login, explicit Lock at `/auth`, and restart revoke the session. Background
+polling counts as activity. Existing CSRF and MCP authorization remain in place;
+only the Google return callback bypasses the browser session and still validates
+its single-use consent state and separate cookie.
+
+See [browser setup](../README.md#local-browser-access) and
+[ADR 0080](adr/0080-local-browser-access-gate.md). Focused synthetic proof:
+`server/browser-access.test.ts`. Vite proxies `/auth` and denies private files.
+The development endpoint is not a packaged browser distribution. Native,
+interactive browser, real-provider and installed acceptance are separate.
+
 ## Standalone Android client
 
 `android/` is an independent Java/Android IMAP and SMTP client. It does not run
@@ -2249,3 +2268,10 @@ stale draft openings must not replace the current search or compose session.
 Verification is tracked in [task #42](https://github.com/collection-of-things/aggregate-mail/issues/42).
 Synthetic results, native interaction, installed-app acceptance and provider
 coverage are separate evidence.
+
+Browser rendering also checks access before mounting private content and every
+10 seconds afterward. A revoked session or failed access check removes mounted
+mail and drafts. Hidden tabs conceal content and recheck access on return.
+The access page broadcasts explicit locking to other tabs on the same origin.
+Checks of session status do not renew request-idle expiry. Browser-session loss
+can discard unsaved edits; it never sends mail or retries an uncertain send.
