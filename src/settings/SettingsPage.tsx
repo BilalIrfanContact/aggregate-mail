@@ -22,6 +22,7 @@ import { AppearanceSettings } from "./AppearanceSettings";
 import { BrandingSection } from "./BrandingSection";
 import { ConfigurationForm } from "./ConnectionForm";
 import { InteractionSettings } from "./InteractionSettings";
+import { PhoneAccessSettings } from "./PhoneAccessSettings";
 import { McpSection } from "./McpSection";
 import { settingsSections, type SettingsSection } from "./sections";
 
@@ -101,6 +102,7 @@ export function SettingsPage({
       </nav>}
       <div className="settings-column" ref={scrollPane}>
         <header className="settings-section-heading"><h1>{current.label}</h1><p>{current.description}</p></header>
+        {section === "phone-access" && <PhoneAccessSettings api={api} onCopied={onCopied} />}
         {section === "interaction" && <section>
           <InteractionSettings value={interaction} onChange={onInteraction} />
         </section>}

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add Settings → Phone access for private Tailscale HTTPS browser access, with
+  host-local confirmed setup, verified route ownership, Secure sessions,
+  expiring route verification and safe removal. Preserve existing Serve routes.
+
 - List pull requests directly under What's Changed in generated release notes, without an "Other changes" group.
 
 - Gate localhost browser access with a password, expiring HttpOnly session,
