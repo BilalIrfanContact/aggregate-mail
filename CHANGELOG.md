@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Find pinned mail from Filters or Commands, in the current view or in All cached, so pins that were archived or snoozed stay easy to reach. The selected account is kept, and a short note explains how Pin differs from Snooze and Track.
+
 - List pull requests directly under What's Changed in generated release notes, without an "Other changes" group.
 
 - Replace the installed macOS app and request a restart after a verified download, retaining the previous app and normal macOS trust checks. No manual dragging or developer tools are required by the new update route.

@@ -34,7 +34,7 @@ import { interactionActions, matches, read as readInteraction, save as saveInter
 import { InboxTabs } from "./mail/InboxTabs";
 import { ListEmpty } from "./mail/ListEmpty";
 import { MailActions } from "./mail/MailActions";
-import { MailFilters } from "./mail/MailFilters";
+import { MailFilters, type PinnedScope } from "./mail/MailFilters";
 import { MailList } from "./mail/MailList";
 import { Workbench } from "./work/Workbench";
 import { QuickTrack } from "./work/QuickTrack";
@@ -1024,6 +1024,11 @@ export function App() {
     settings: () => setSettings(true), privacy: togglePrivacy, help: () => setShortcuts(true),
     density: () => setDensity((value) => value === "comfortable" ? "compact" : "comfortable"),
   };
+  const findPinned = (scope: PinnedScope) => {
+    navigate({ page: "mail", ...(scope === "all" ? { view: "all" as const } : {}), query: "is:pinned", selectedId: null, opened: false });
+    setSearching(true);
+    setFiltersOpen(false);
+  };
   const commands: PaletteCommand[] = [
     ...interactionActions.flatMap(({ id, label }) => id in paletteActions ? [{ id, label, shortcut: shortcut(id),
       run: paletteActions[id as keyof typeof paletteActions] }] : []),
@@ -1032,10 +1037,8 @@ export function App() {
     { id: "drafts", label: "Open Drafts", disabled: !state.accounts.length, run: () => switchView("drafts") },
     { id: "archive-view", label: "Show Archive", run: () => switchView("archive") },
     { id: "snoozed-view", label: "Show Snoozed", run: () => switchView("snoozed") },
-    { id: "pinned-view", label: "Show pinned emails in this view", run: () => {
-      navigate({ page: "mail", query: "is:pinned", selectedId: null, opened: false });
-      setSearching(true);
-    } },
+    { id: "pinned-view", label: "Find pinned mail in this view", run: () => findPinned("view") },
+    { id: "pinned-all", label: "Find pinned mail in All cached", run: () => findPinned("all") },
     { id: "sync", label: "Sync mail", disabled: syncing || !state.accounts.length, run: () => void sync() },
     ...(!settings && selected ? mailMenuActions(selected).map(({ id, label, key, disabled, run }) =>
       ({ id: `mail-${id}`, label, shortcut: key, disabled, run })) : []),
@@ -1115,6 +1118,7 @@ export function App() {
                   labelName={(name) => privacy ? redactPrivateText(name, collectPrivateNames(state.accounts, opened ? selected || {} : {})) : name}
                   onOpen={(open) => open && compose ? leaveCompose({ type: "filters" }) : setFiltersOpen(open)}
                   onChange={(patch) => navigate({ ...patch, selectedId: null, opened: false })}
+                  onFindPinned={findPinned}
                   onReset={resetListControls}
                 />}
                 {privacyButton}
